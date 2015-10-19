@@ -13,6 +13,6 @@ cabal.sandbox.config
 *.prof
 *.aux
 *.hp
-.stack-work/
+.stack-work
 *.swp
 *.bak
