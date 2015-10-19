@@ -1,14 +1,34 @@
-
 module Ast where
+import Test.QuickCheck
 
 type Name = String
 data Sign = Signed | Unsigned
+  deriving( Eq )
+
+instance Show Sign where
+  show Signed = "s"
+  show Unsigned = "u"
+
+instance Arbitrary Sign where
+    arbitrary = elements [Signed, Unsigned]
+
 data Endianness = BigEndian | LittleEndian | NativeEndian
+  deriving( Eq )
+
+instance Show Endianness where
+  show BigEndian = "b"
+  show LittleEndian = "l"
+  show NativeEndian = "n"
+
+instance Arbitrary Endianness where
+    arbitrary = elements [BigEndian, LittleEndian, NativeEndian]
+      
 
 -- BField will be the only primitive type. All others will be derived.
-data Ty = BField Sign Endianness Int
+data Ty = BField Int Sign Endianness
         | Tycon Name
         | TyConapp Ty [Ty]
+      deriving( Show, Eq )
 
 data Entry = Block | Field Name Ty
 data Block = Blk Name [Entry]

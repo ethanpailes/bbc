@@ -42,16 +42,8 @@ parseNamedType = do
 
 prop_NamedType :: Name -> Bool
 prop_NamedType n = runParserFresh parseNamedType name (== Tycon name)
-      where name = filter isLetter ('x':n)
-
-parseTy :: Parser Ty
-parseTy = parseBField <|> parseNamedType
-
-prop_ParseTyDoesNotThrowOutInput :: Name -> Bool
-prop_ParseTyDoesNotThrowOutInput n =
-    runParserFresh parseTy name (== Tycon name)
-      where name = filter isLetter ('x':n)
-
+      where name = filter (not . isSpace) ('x':n)
+  
 
 return []
 testMod :: IO Bool
