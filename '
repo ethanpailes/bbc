@@ -19,39 +19,33 @@ runParserFresh p input sat =
 reserved :: [String]
 reserved = ["end", "block"]
 
-justSpace :: Parser Char
-justSpace = satisfy (`elem` ("\t\r\f\v "::String))
-
-justSpaces :: Parser String
-justSpaces = many1 justSpace
-
 parseName :: Parser Name
 parseName = do
   first <- letter
   rest <- many (letter <|> digit)
-  let n = first:rest
-    in if n `elem` reserved
-          then unexpected (n ++ " is a reserved word")
-          else return n
+  return n
+  --if n `elem` reserved then return n else Left n ++ " is a reserved word"
+    where n = first:rest
+  --return $ first:rest
 
 parseTy :: Parser Ty
 parseTy = parseBField <|> try parseTyConapp <|> parseTycon
-  where
-    parseTyConapp = do
-      ty <- parseTycon
-      tys <- many1 (try (justSpaces >> parseTycon))
-      return $ TyConapp ty tys
-    parseBField = do
-      len <- many1 digit
-      sign <- oneOf "su"
-      endianness <- option 'n' $ oneOf "bln"
-      return $ BField (read len)
-                (if sign == 's' then Signed else Unsigned)
-                (case endianness of
-                  'b' -> BigEndian
-                  'l' -> LittleEndian
-                  _ -> NativeEndian)
-    parseTycon = parseName >>= \n -> return $ Tycon n
+  -- where TODO
+parseTyConapp = do
+  ty <- parseTycon
+  tys <- many1 (try (spaces >> parseTycon))
+  return $ TyConapp ty tys
+parseBField = do
+  len <- many1 digit
+  sign <- oneOf "su"
+  endianness <- option 'n' $ oneOf "bln"
+  return $ BField (read len)
+            (if sign == 's' then Signed else Unsigned)
+            (case endianness of
+              'b' -> BigEndian
+              'l' -> LittleEndian
+              _ -> NativeEndian)
+parseTycon = parseName >>= \n -> return $ Tycon n
 
 prop_ParseTyParsesArbitraryType :: Ty -> Bool
 prop_ParseTyParsesArbitraryType t =
@@ -60,16 +54,13 @@ prop_ParseTyParsesArbitraryType t =
 parseBlock :: Parser Block
 parseBlock = do
     _ <- string "block"
-    n <- justSpaces >> parseName
-    entries <- many1 (try (spaces >> parseEntry))
+    n <- spaces >> parseName
+    -- entries <- many1 (try (spaces >> parseEntry))
+    entry <- spaces >> parseEntry
     _ <- spaces >> string "end"
-    return $ Block n entries
-
-parseEntry = do
-  entry <- parseField <|> (parseBlock >>= \b -> return (Blk b))
-  _ <- many justSpace >> newline
-  return entry
-
+    return $ Block n [entry] --entries
+  --where TODO
+parseEntry = parseField <|> (parseBlock >>= \b -> return (Blk b))
 parseField = do
   n <- parseName
   _ <- spaces >> char ':' >> spaces

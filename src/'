@@ -54,26 +54,16 @@ instance Arbitrary Ty where
         return $ TyConapp ty tys
 
 data Entry = Blk Block | Field Name Ty
-  deriving( Eq )
 
-instance Show Entry where
-  show (Blk b) = show b
-  show (Field n ty) = n ++ " : " ++ show ty
-
--- To avoid potentially infinite blocks this only generates fields
 instance Arbitrary Entry where
-  arbitrary = do
-        n <- suchThat arbitrary (\name -> all isLetter name && not (null name))
+  arbitrary = oneof [aField]
+    where
+      aField = do
+        n <- arbitrary
         ty <- arbitrary
         return $ Field n ty
 
 data Block = Block Name [Entry]
-  deriving( Eq )
-
-instance Show Block where
-  show (Block n es) = "block " ++ n ++ "\n"
-          ++ concatMap (\e -> "    " ++ show e ++ "\n") es ++ "end"
-
 
 instance Arbitrary Block where
   arbitrary = do
