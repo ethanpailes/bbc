@@ -82,6 +82,15 @@ prop_ParseSingleLevelBlock b =
   runParserFresh parseBlock (show b) (== b)
 
 
+prop_ParseDoubleLevelBlock :: Block -> Block -> Bool
+prop_ParseDoubleLevelBlock outer@(Block n (e:es)) inner =
+  runParserFresh parseBlock (show c) (== c)
+    where
+      c = Block n (e : Blk inner : es)
+prop_ParseDoubleLevelBlock outer@(Block n []) inner = -- just test the inner
+  runParserFresh parseBlock (show inner) (== inner)
+
+
 return []
 testMod :: IO Bool
 testMod = $quickCheckAll
