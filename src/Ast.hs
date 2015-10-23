@@ -4,39 +4,41 @@ import Control.Monad
 import Data.List
 import Data.Char
 
+class Pretty a where
+  pretty :: a -> String
+
 type Name = String
 data Sign = Signed | Unsigned
-  deriving( Eq )
+  deriving( Eq, Show )
 
-instance Show Sign where
-  show Signed = "s"
-  show Unsigned = "u"
+instance Pretty Sign where
+  pretty Signed = "s"
+  pretty Unsigned = "u"
 
 instance Arbitrary Sign where
     arbitrary = elements [Signed, Unsigned]
 
 data Endianness = BigEndian | LittleEndian | NativeEndian
-  deriving( Eq )
+  deriving( Eq, Show )
 
-instance Show Endianness where
-  show BigEndian = "b"
-  show LittleEndian = "l"
-  show NativeEndian = "n"
+instance Pretty Endianness where
+  pretty BigEndian = "b"
+  pretty LittleEndian = "l"
+  pretty NativeEndian = "n"
 
 instance Arbitrary Endianness where
     arbitrary = elements [BigEndian, LittleEndian, NativeEndian]
-      
 
 -- BField will be the only primitive type. All others will be derived.
 data Ty = BField Int Sign Endianness
         | Tycon Name
         | TyConapp Ty [Ty]
-      deriving( Eq )
+      deriving( Eq, Show )
 
-instance Show Ty where
-  show (BField len s e) = show len ++ show s ++ show e
-  show (Tycon n) = n
-  show (TyConapp ty tys) = show ty ++ (' ' : unwords (map show tys))
+instance Pretty Ty where
+  pretty (BField len s e) = show len ++ pretty s ++ pretty e
+  pretty (Tycon n) = n
+  pretty (TyConapp ty tys) = pretty ty ++ (' ' : unwords (map pretty tys))
 
 instance Arbitrary Ty where
   arbitrary = oneof [aTycon, aBFeild, aTyConapp]
@@ -54,11 +56,11 @@ instance Arbitrary Ty where
         return $ TyConapp ty tys
 
 data Entry = Blk Block | Field Name Ty
-  deriving( Eq )
+  deriving( Eq, Show )
 
-instance Show Entry where
-  show (Blk b) = show b
-  show (Field n ty) = n ++ " : " ++ show ty
+instance Pretty Entry where
+  pretty (Blk b) = pretty b
+  pretty (Field n ty) = n ++ " : " ++ pretty ty
 
 -- To avoid potentially infinite blocks this only generates fields
 instance Arbitrary Entry where
@@ -68,12 +70,11 @@ instance Arbitrary Entry where
         return $ Field n ty
 
 data Block = Block Name [Entry]
-  deriving( Eq )
+  deriving( Eq, Show )
 
-instance Show Block where
-  show (Block n es) = "block " ++ n ++ "\n"
-          ++ concatMap (\e -> "    " ++ show e ++ "\n") es ++ "end"
-
+instance Pretty Block where
+  pretty (Block n es) = "block " ++ n ++ "\n"
+          ++ concatMap (\e -> "    " ++ pretty e ++ "\n") es ++ "end"
 
 instance Arbitrary Block where
   arbitrary = do
