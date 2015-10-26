@@ -65,8 +65,18 @@ parseBlock = do
     _ <- spaces >> string "end"
     return $ Block n entries
 
+-- Testing values TODO delete
+bInner = Block "inner" [Field "f1" (Tycon "int32"), Field "f2" (Tycon "uint8")]
+bOuter = Block "outer" [Field "a" (Tycon "uint64"),
+                          Blk bInner,
+                          Field "b" (Tycon "int8")]
+
+b1 = Block "i" [Field "S" (TyConapp (Tycon "WA") [Tycon "\250"]),Field "J\242" (TyConapp (Tycon "r\207") [Tycon "\222\255z"])]
+b2 = Block "G" [Field "Ta" (Tycon "h\242e")]
+-- End Testing values
+
 parseEntry = do
-  entry <- parseField <|> (parseBlock >>= \b -> return (Blk b))
+  entry <- try parseField <|> (parseBlock >>= \b -> return (Blk b))
   _ <- many justSpace >> newline
   return entry
 
@@ -82,15 +92,12 @@ prop_ParseSingleLevelBlock b =
   runParserFresh parseBlock (pretty b) (== b)
 
 
-{-
-c_prop_ParseDoubleLevelBlock :: Block -> Block -> Bool
-c_prop_ParseDoubleLevelBlock outer@(Block n (e:es)) inner =
-  runParserFresh parseBlock (show c) (== c)
-    where
-      c = Block n (e : Blk inner : es)
-c_prop_ParseDoubleLevelBlock outer@(Block n []) inner = -- just test the inner
-  runParserFresh parseBlock (show inner) (== inner)
--}
+prop_ParseDoubleLevelBlock :: Block -> Block -> Bool
+prop_ParseDoubleLevelBlock (Block n (e:es)) inner =
+  runParserFresh parseBlock (pretty c) (== c)
+    where c = Block n (e : Blk inner : es)
+prop_ParseDoubleLevelBlock (Block n []) inner = -- just test the inner
+  runParserFresh parseBlock (pretty inner) (== inner)
 
 
 return []

@@ -2,11 +2,11 @@ module Ast where
 import Test.QuickCheck
 import Control.Monad
 import Data.List
+import Data.List.Utils
 import Data.Char
 
 class Pretty a where
-  pretty :: a -> String
-
+  pretty :: a -> String 
 type Name = String
 data Sign = Signed | Unsigned
   deriving( Eq, Show )
@@ -59,7 +59,7 @@ data Entry = Blk Block | Field Name Ty
   deriving( Eq, Show )
 
 instance Pretty Entry where
-  pretty (Blk b) = pretty b
+  pretty (Blk b) = replace "\n" "\n    " (pretty b) -- handle nesting
   pretty (Field n ty) = n ++ " : " ++ pretty ty
 
 -- To avoid potentially infinite blocks this only generates fields

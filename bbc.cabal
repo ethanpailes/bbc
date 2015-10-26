@@ -20,3 +20,4 @@ executable bbc
         base >= 4.7 && < 5
       , QuickCheck
       , parsec
+      , MissingH
