@@ -10,7 +10,7 @@ import Control.Monad
 import Data.Char
 
 -- Utility funciton to run a parser and satisfy the given function
-runParserFresh ::GenParser tok () a -> [tok] -> (a -> Bool) -> Bool
+runParserFresh :: GenParser tok () a -> [tok] -> (a -> Bool) -> Bool
 runParserFresh p input sat = 
   case runParser p () "test snippet" input of
     Right res -> sat res
@@ -19,8 +19,10 @@ runParserFresh p input sat =
 reserved :: [String]
 reserved = ["end", "block"]
 
+-- |Whitespaces that is not a newline
 justSpace :: Parser Char
-justSpace = satisfy (`elem` ("\t\r\f\v "::String))
+justSpace = satisfy $ \c -> isSpace c && c /= '\n'
+  --satisfy (`elem` ("\t\r\f\v "::String))
 
 justSpaces :: Parser String
 justSpaces = many1 justSpace
@@ -64,16 +66,6 @@ parseBlock = do
     entries <- many1 (try (spaces >> parseEntry))
     _ <- spaces >> string "end"
     return $ Block n entries
-
--- Testing values TODO delete
-bInner = Block "inner" [Field "f1" (Tycon "int32"), Field "f2" (Tycon "uint8")]
-bOuter = Block "outer" [Field "a" (Tycon "uint64"),
-                          Blk bInner,
-                          Field "b" (Tycon "int8")]
-
-b1 = Block "i" [Field "S" (TyConapp (Tycon "WA") [Tycon "\250"]),Field "J\242" (TyConapp (Tycon "r\207") [Tycon "\222\255z"])]
-b2 = Block "G" [Field "Ta" (Tycon "h\242e")]
--- End Testing values
 
 parseEntry = do
   entry <- try parseField <|> (parseBlock >>= \b -> return (Blk b))
