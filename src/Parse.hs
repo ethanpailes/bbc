@@ -22,7 +22,6 @@ reserved = ["end", "block"]
 -- |Whitespaces that is not a newline
 justSpace :: Parser Char
 justSpace = satisfy $ \c -> isSpace c && c /= '\n'
-  --satisfy (`elem` ("\t\r\f\v "::String))
 
 justSpaces :: Parser String
 justSpaces = many1 justSpace
@@ -30,7 +29,7 @@ justSpaces = many1 justSpace
 parseName :: Parser Name
 parseName = do
   first <- letter
-  rest <- many (letter <|> digit)
+  rest <- many (letter <|> digit <|> char '_')
   let n = first:rest
     in if n `elem` reserved
           then unexpected (n ++ " is a reserved word")
@@ -78,6 +77,8 @@ parseField = do
   ty <- parseTy
   return $ Field n ty
 
+parseFile :: Parser [Block]
+parseFile = many (try (spaces >> parseBlock))
 
 prop_ParseSingleLevelBlock :: Block -> Bool
 prop_ParseSingleLevelBlock b =

@@ -21,3 +21,5 @@ executable bbc
       , QuickCheck
       , parsec
       , MissingH
+      , language-c
+      , random == 1.1

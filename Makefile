@@ -1,5 +1,10 @@
 
+build:
+	stack build
 
-test:
+test: build
+	stack exec bbc -- -test
+
+clean:
 	stack clean
-	stack build && stack exec bbc -- -test
+
