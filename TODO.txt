@@ -1,0 +1,26 @@
+
+Implemented:
+
+Language Features:
+  Aligned bit fields
+  Signedness
+  Endianess
+
+TODO:
+
+Clean up Front End of Compiler:
+  Add a --help flag to print out usage nicely
+  Add a handler to main which catches all exceptions and either prints
+    them or prints the usage depending on if I defined the exception.
+
+
+Language Features:
+  Named types
+  Unaligned bit fields
+  Nested blocks
+  Higher order types
+
+
+Optimizations & implementation clean up:
+  Text manipulation with Text rather than Strings
+  Maybe use langauge-c instead of plan-text manipulation
