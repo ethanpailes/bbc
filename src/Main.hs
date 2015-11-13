@@ -12,9 +12,9 @@ import Data.Maybe
 import Data.Either
 
 import qualified Ast
-import qualified GenImperative
 import qualified Parse
 import qualified GenC
+import qualified TypeCheck
 
 
 
@@ -72,7 +72,7 @@ main = do
   runCompiler opts inputFiles
 
 tests :: [IO Bool]
-tests = [GenImperative.testMod, Parse.testMod]
+tests = [Parse.testMod]
 
 runCompiler :: Options -> [String] -> IO ()
 runCompiler opts files =
@@ -90,6 +90,7 @@ runCompiler opts files =
     then putStrLn $ unlines $ map show $ lefts parses
     else
       let parseResults = concat $ rights parses
+          gamma = TypeCheck.typeCheck parseResults TypeCheck.gammaInit
       in
         if test
         then let testsPass = foldl
@@ -102,6 +103,6 @@ runCompiler opts files =
           case dump of
             DumpAst -> out $ show parseResults
             DumpGen -> putStrLn "DumpGen Unimplimented."
-            DumpNoDump ->
+            DumpNoDump -> do
               out $ case tgt of
-                      C -> GenC.gen parseResults
+                      C -> GenC.gen gamma parseResults
