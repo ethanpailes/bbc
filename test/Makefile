@@ -4,7 +4,7 @@ CC=gcc
 
 
 test: aligned-bitfields aligned-bitfields.bb.h
-	./aligned-bitfields
+	./test.sh aligned-bitfields 0 outfiles/aligned-bitfields.out aligned-bitfields
 
 %.bb.h: %.bb
 	${BBCC} -o $@ $<
