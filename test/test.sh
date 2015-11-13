@@ -20,7 +20,7 @@ TEST_NAME=$4
 
 echo "Running test ${TEST_NAME}..."
 
-TMP_OUT_FILE="/tmp/bbc-test-$$-$(id -u -n)-$(date +'%y-%m-%d-%l-%M')-${TEST_NAME}.txt"
+TMP_OUT_FILE="/tmp/bbc-test-$$-$(id -u -n)-${TEST_NAME}.txt"
 echo "Writing test output to ${TMP_OUT_FILE}"
 
 ./${BIN} > ${TMP_OUT_FILE} 2>&1
@@ -32,6 +32,7 @@ if [ ${EXIT_STAT} != ${EXPECTED_EXIT_STAT} ] ; then
   exit 1
 fi
 
+echo "diff ${TMP_OUT_FILE} ${EXPECTED_OUT_FILE}"
 diff ${TMP_OUT_FILE} ${EXPECTED_OUT_FILE}
 DIFF_EXIT_STAT=$?
 if [ ${DIFF_EXIT_STAT} != 0 ] ; then
