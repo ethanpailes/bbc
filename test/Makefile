@@ -5,6 +5,7 @@ CC=gcc
 
 test: aligned-bitfields aligned-bitfields.bb.h
 	./test.sh aligned-bitfields 0 ./outfiles/aligned-bitfields.out aligned-bitfields
+	./test.sh compile-unknown-block.sh 1 ./outfiles/compile-unknown-block.sh.out unknown-block
 
 %.bb.h: %.bb
 	${BBCC} -o $@ $<
