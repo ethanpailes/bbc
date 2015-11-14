@@ -20,7 +20,6 @@ Clean up Front End of Compiler:
 
 
 Language Features:
-  Named types
   Unaligned bit fields
   Nested blocks
   Higher order types
