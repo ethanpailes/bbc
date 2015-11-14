@@ -15,6 +15,7 @@ import qualified Ast
 import qualified Parse
 import qualified GenC
 import qualified TypeCheck
+import qualified Exceptions
 
 
 
@@ -23,10 +24,10 @@ data OptDump = DumpAst | DumpGen | DumpNoDump
 data OptTgt = C
   deriving(Eq,Ord,Show)
 
-readTgt :: String -> Maybe OptTgt
-readTgt "c" = Just C
-readTgt "C" = Just C
-readTgt lang = Nothing
+readTgt :: String -> OptTgt
+readTgt "c" = C
+readTgt "C" = C
+readTgt lang = throw $ Exceptions.UnknownTgtLang lang
 
 data Options = Options { optTest :: Bool
                        , optDump :: OptDump
@@ -47,7 +48,7 @@ options =
       "Dump the intermediary representation."
   , Option "t" ["target-lang"]
       (ReqArg
-        (\arg opts -> return opts { optTgt = fromJust (readTgt arg) })
+        (\arg opts -> return opts { optTgt = readTgt arg })
         "TARGET")
       "The target langauge to output."
   , Option "o" ["output-file"]
