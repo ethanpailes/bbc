@@ -17,15 +17,24 @@ gen :: Env Block -> [Block] -> String
 gen gamma bs =
          "#ifndef " ++ headerGaurd ++ "\n#define " ++ headerGaurd
       ++ "\n#include <string.h>\n#include <stdint.h>\n#include <endian.h>\n"
-      ++ "#include <stdio.h>\n#include <stdbool.h>\n\n"
+      ++ "#include <stdio.h>\n\n#define true 1\n"
+      ++ "#define false 0\n\n"
       ++ concatMap (genBlock gamma) bs
       ++ "\n#endif\n"
           where headerGaurd = "BYTE_BLOCKS__" ++
                     take 20 (randomRs ('A','Z') $ unsafePerformIO newStdGen)
 
 genBlock :: Env Block -> Block -> String
-genBlock gamma b = genStructure gamma b ++ ('\n' : '\n' : genRead gamma b)
-            ++ ('\n' : '\n' : genWrite gamma b) ++ "\n\n\n"
+genBlock gamma b = unlines $ map (\genFun -> genFun gamma b) genFuns
+    where
+      genFuns = [ genStructure
+                , genPack
+                , genUnpack
+                , (\_ _ -> "\n")
+                , genWrite
+                , genRead
+                , (\_ _ -> "\n\n")]
+
 
 genStructure :: Env Block -> Block -> String
 genStructure gamma (Block n es) =
@@ -45,29 +54,35 @@ genStructure gamma (Block n es) =
           -- based on the fact that previously defined structs will already
           -- have been defined in the output file, we can safely use them
           -- as C types.
-          (Tycon n) -> cFieldDecl ("struct " ++ n) name
+          (Tycon n) -> cFieldDecl n name
           (TyConapp t tys) ->
             throw $ Exceptions.Unsupported "Higher Order types."
 
 genWrite :: Env Block -> Block -> String
-genWrite gamma (Block n entries) =
-     "int " ++ n ++ "_write(" ++ n ++ " *src, FILE *f)\n"
-  ++ "{\n    uint8_t buff[" ++ bs ++ "];\n\n"
-  ++  writeFileStrs entries 0
-  ++ "\n    if (fwrite(buff, " ++ bs ++ ", 1, f) != 1) return false;\n"
+genWrite gamma (Block n es) =
+     "int " ++ n ++ "_write(const " ++ n ++ " *src, FILE *f)\n"
+  ++ "{\n    char buff[" ++ bs ++ "];\n"
+  ++ "    if(!"  ++ n ++ "_pack(src, buff)) return false;\n"
+  ++ "    fwrite(buff, " ++ bs ++ ", 1, f);\n}"
+    where bs = show $ blockSize gamma (Block n es)
+
+genPack :: Env Block -> Block -> String
+genPack gamma (Block n entries) =
+     "int " ++ n ++ "_pack(const " ++ n ++ " *src, char *tgt)\n{\n"
+  ++  packStmt entries 0
   ++ "\n    return true;\n}"
     where 
       bs = show $ blockSize gamma (Block n entries)
-      writeFileStrs [] _ = ""
-      writeFileStrs (e:es) bytesWritten =
+      packStmt [] _ = ""
+      packStmt (e:es) bytesWritten =
         case e of
           (Blk _) -> throw $ Exceptions.Unsupported "Nested blocks."
           (Field fName (BField i s endianness)) ->
             if i `elem` [8, 16, 32, 64]
-              then "    *(" ++ wordPtrStr ++ "(buff + " ++ show bytesWritten
+              then "    *(" ++ wordPtrStr ++ "(tgt + " ++ show bytesWritten
                   ++ "))" ++ " = " ++ endianFuncStr
                   ++ "(src->" ++ fName ++ ");\n"
-                  ++ writeFileStrs es (bytesWritten + (i `div` 8))
+                  ++ packStmt es (bytesWritten + (i `div` 8))
               else throw $ Exceptions.Unsupported "Unaligned bitfields."
                 where
                   wordSizeStr = show i
@@ -84,31 +99,38 @@ genWrite gamma (Block n entries) =
                   wordPtrStr = '(' : signStr ++ "int" ++ wordSizeStr ++ "_t*)"
 
           (Field fName (Tycon tyName)) ->
-            "    " ++ tyName ++ "_write(&(src->" ++ fName ++ "), f);\n"
+               "    " ++ tyName ++ "_pack(&(src->"
+            ++ fName ++ "), (tgt + " ++ show bytesWritten ++ "));\n"
           (Field name (TyConapp _ _)) ->
             throw $ Exceptions.Unsupported "Higher Order types."
-
 
 genRead :: Env Block -> Block -> String
 genRead gamma (Block n entries) = 
      "int " ++ n ++ "_read(" ++ n ++ " *tgt, FILE *f)\n"
-  ++ "{\n    uint8_t buff[" ++ bs ++ "];\n"
+  ++ "{\n    char buff[" ++ bs ++ "];\n"
   ++ "    memset(buff, 0, " ++ bs ++ ");\n\n"
-  ++ "    if (fread(buff, " ++ bs ++ ", 1, f) != 1) return false;\n\n"
-  ++ readFieldStrs entries 0
+  ++ "    if (fread(buff, " ++ bs ++ ", 1, f) != 1) return false;\n"
+  ++ "    return " ++ n ++ "_unpack(tgt, buff);\n}"
+    where
+      bs = show $ blockSize gamma (Block n entries)
+
+genUnpack :: Env Block -> Block -> String
+genUnpack gamma (Block n entries) = 
+     "int " ++ n ++ "_unpack(" ++ n ++ " *tgt, const char *src)\n{\n"
+  ++ unpackStmt entries 0
   ++ "\n    return true;\n}"
     where
       bs = show $ blockSize gamma (Block n entries)
-      readFieldStrs [] _ = ""
-      readFieldStrs (e:es) bytesConsumed =
+      unpackStmt [] _ = ""
+      unpackStmt (e:es) bytesConsumed =
         case e of
           (Blk _) -> throw $ Exceptions.Unsupported "Nested blocks."
           (Field fName (BField i s endianness)) ->
             if i `elem` [8, 16, 32, 64]
               then "    tgt->" ++ fName
                       ++ " = " ++ endianFuncStr ++ "(* (" ++ wordPtrStr
-                      ++ "(buff + " ++ show bytesConsumed ++ ")));\n"
-                      ++ readFieldStrs es (bytesConsumed + (i `div` 8))
+                      ++ "(src + " ++ show bytesConsumed ++ ")));\n"
+                      ++ unpackStmt es (bytesConsumed + (i `div` 8))
               else throw $ Exceptions.Unsupported "Unaligned bitfields."
                 where
                   wordSizeStr = show i
@@ -125,7 +147,8 @@ genRead gamma (Block n entries) =
                   wordPtrStr = '(' : signStr ++ "int" ++ wordSizeStr ++ "_t*)"
 
           (Field fName (Tycon tyName)) ->
-            "    " ++ tyName ++ "_read(&(tgt->" ++ fName ++ "), f);\n"
+            "    " ++ tyName ++ "_unpack(&(tgt->"
+                ++ fName ++ "), (src + " ++ show bytesConsumed ++ "));\n"
           (Field name (TyConapp _ _)) ->
             throw $ Exceptions.Unsupported "Higher Order types."
 

@@ -12,6 +12,11 @@ Clean up Front End of Compiler:
   Add a --help flag to print out usage nicely
   Add a handler to main which catches all exceptions and either prints
     them or prints the usage depending on if I defined the exception.
+  The _pack part of the API is currently unsafe (does not do any
+    bounds checking). I should rename it to _pack_unsafe, and add
+    a version which does some bounds checking and grows the target
+    array. In the mean time I will just define a size variable for
+    each block so the unsafe API is somewhat usable.
 
 
 Language Features:
