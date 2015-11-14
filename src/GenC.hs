@@ -25,13 +25,13 @@ gen gamma bs =
 
 genBlock :: Env Block -> Block -> String
 genBlock gamma b = genStructure gamma b ++ ('\n' : '\n' : genRead gamma b)
-            ++ ('\n' : '\n' : genWrite gamma b)
+            ++ ('\n' : '\n' : genWrite gamma b) ++ "\n\n\n"
 
 genStructure :: Env Block -> Block -> String
 genStructure gamma (Block n es) =
   "typedef struct " ++ n ++ " {\n"
     ++ concatMap fieldStr es
-    ++ "} " ++ n ++ ";"
+    ++ "} " ++ n ++ ";\n"
     where
       cFieldDecl cType fName = "    " ++ cType ++ (' ' : fName) ++ ";\n"
       fieldStr (Blk b) = throw $ Exceptions.Unsupported "Nested blocks."
@@ -41,8 +41,6 @@ genStructure gamma (Block n es) =
             let sign = if s == Signed then "" else "u"
             in if i `elem` [8, 16, 32, 64]
                then cFieldDecl (sign ++ "int" ++ show i ++ "_t") name
-               --"    " ++ sign ++ "int" ++ show i ++ "_t "
-                    --  ++ (' ' : name) ++ ";\n"
                else throw $ Exceptions.Unsupported "Unaligned bitfields."
           -- based on the fact that previously defined structs will already
           -- have been defined in the output file, we can safely use them
@@ -85,8 +83,8 @@ genWrite gamma (Block n entries) =
                               NativeEndian -> ""
                   wordPtrStr = '(' : signStr ++ "int" ++ wordSizeStr ++ "_t*)"
 
-          (Field name (Tycon _)) ->
-            throw $ Exceptions.Unsupported "Named types."
+          (Field fName (Tycon tyName)) ->
+            "    " ++ tyName ++ "_write(&(src->" ++ fName ++ "), f);\n"
           (Field name (TyConapp _ _)) ->
             throw $ Exceptions.Unsupported "Higher Order types."
 
@@ -127,7 +125,7 @@ genRead gamma (Block n entries) =
                   wordPtrStr = '(' : signStr ++ "int" ++ wordSizeStr ++ "_t*)"
 
           (Field fName (Tycon tyName)) ->
-            tyName ++ "_read(&tgt->" ++ fName ++ ", f);\n"
+            "    " ++ tyName ++ "_read(&(tgt->" ++ fName ++ "), f);\n"
           (Field name (TyConapp _ _)) ->
             throw $ Exceptions.Unsupported "Higher Order types."
 
