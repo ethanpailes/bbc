@@ -20,5 +20,5 @@ then
 
 ## Test
 
-  make test
+    make test
 
