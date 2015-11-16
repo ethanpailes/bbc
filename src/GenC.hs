@@ -16,7 +16,14 @@ import System.IO.Unsafe
 gen :: Env Block -> [Block] -> String
 gen gamma bs =
          "#ifndef " ++ headerGaurd ++ "\n#define " ++ headerGaurd
-      ++ "\n#include <string.h>\n#include <stdint.h>\n#include <endian.h>\n"
+      ++ "\n#include <string.h>\n#include <stdint.h>\n"
+      -- DEPENDENCY WRANGLING
+      ++ "#ifdef __linux__\n"
+      ++ "#include <endian.h>\n"
+      ++ "#elif defined __APPLE__\n"
+      ++ "#include <machine/endian.h>\n"
+      ++ "#endif\n"
+      -- END DEPENDENCY WRANGLING
       ++ "#include <stdio.h>\n\n#define true 1\n"
       ++ "#define false 0\n\n"
       ++ concatMap (genBlock gamma) bs

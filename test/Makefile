@@ -2,7 +2,6 @@
 BBCC=$(shell stack exec which bbc)
 CC=gcc
 
-
 test: aligned-bitfields          aligned-bitfields.bb.h \
 			named-block                named-block.bb.h
 	echo ${BBCC}
