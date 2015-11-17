@@ -120,7 +120,8 @@ genPack gamma (Block n entries) =
                "    " ++ tyName ++ "_pack(&(src->"
             ++ fName ++ "), (tgt + " ++ show bytesWritten ++ "));\n"
           (Field name (TyConapp _ _)) ->
-            throw $ Exceptions.Unsupported "Higher Order types."
+            "TODO HIGHER ORDER TYPES\n"
+            --throw $ Exceptions.Unsupported "Higher Order types."
 
 genRead :: Env Block -> Block -> String
 genRead gamma (Block n entries) = 
@@ -168,20 +169,40 @@ genUnpack gamma (Block n entries) =
             "    " ++ tyName ++ "_unpack(&(tgt->"
                 ++ fName ++ "), (src + " ++ show bytesConsumed ++ "));\n"
           (Field name (TyConapp _ _)) ->
-            throw $ Exceptions.Unsupported "Higher Order types."
+            "TODO HIGHER ORDER TYPES\n"
+            --throw $ Exceptions.Unsupported "Higher Order types."
 
 blockSize :: Env Block -> Block -> Int
 blockSize gamma (Block _ entries) =
-      foldl (\a e ->
+  let sizeOfType (BField i _ _) =
+            if i `elem` [8, 16, 32, 64]
+            then (i `div` 8)
+            else throw $ Exceptions.Unsupported "Unaligned bitfields."
+      sizeOfType (Tycon tyName) =
+            -- TODO cache results instead of recomputing
+            blockSize gamma (fromJust (tyName `M.lookup` gamma))
+      sizeOfType tca@(TyConapp t tys) =
+            case t of
+              (Tycon "array") -> foldl (+) 0 $ map sizeOfType tys
+              _               -> throw $ Exceptions.MalformedHigherOrderType tca
+
+   in
+      foldl (\a e -> case e of
+                      (Field _ t) -> a + (sizeOfType t)
+                      (Blk _) -> throw $ Exceptions.Unsupported "Nested blocks.")
+            {-
         case e of
           (Field _ (BField i _ _)) -> 
             if i `elem` [8, 16, 32, 64]
             then a + (i `div` 8)
             else throw $ Exceptions.Unsupported "Unaligned bitfields."
-          (Field _ (Tycon tyName)) ->
+          (Field _ (Tycon tyName)) -> -- TODO cache results instead of recomputing
             blockSize gamma (fromJust (tyName `M.lookup` gamma))
-          (Field name (TyConapp t tys)) -> -- TODO cache results instead of recomputing
-            throw $ Exceptions.Unsupported "Higher Order Types."
+          (Field name tca@(TyConapp t tys)) -> 
+            case t of
+              (Tycon "array") -> 
+              _               -> throw $ Exceptions.MalformedHigherOrderType tca
           (Blk _) -> throw $ Exceptions.Unsupported "Nested blocks.")
+          -}
       0
       entries

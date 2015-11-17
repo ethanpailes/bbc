@@ -2,7 +2,8 @@
 BBCC=$(shell stack exec which bbc)
 CC=gcc
 
-test: aligned-bitfields          aligned-bitfields.bb.h \
+test: clean \
+			aligned-bitfields          aligned-bitfields.bb.h \
 			named-block                named-block.bb.h
 	echo ${BBCC}
 	./test.sh aligned-bitfields 0 ./outfiles/aligned-bitfields.out aligned-bitfields
@@ -16,5 +17,5 @@ test: aligned-bitfields          aligned-bitfields.bb.h \
 	${CC} -o $@ $@.c
 
 clean:
-	rm *.bb.h
-	rm aligned-bitfields named-block
+	rm -f *.bb.h
+	rm -f aligned-bitfields named-block unknown-block
