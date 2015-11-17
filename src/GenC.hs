@@ -50,20 +50,31 @@ genStructure gamma (Block n es) =
     ++ "} " ++ n ++ ";\n"
     where
       cFieldDecl cType fName = "    " ++ cType ++ (' ' : fName) ++ ";\n"
+
+
+      -- only works on bfields
+      cTypeOf (BField i s _) = let sign = if s == Signed then "" else "u"
+                                in sign ++ "int" ++ show i ++ "_t"
+      cTypeOf _              = "" -- unsafe
+
       fieldStr (Blk b) = throw $ Exceptions.Unsupported "Nested blocks."
       fieldStr (Field name ty) =
         case ty of
           (BField i s e) ->
             let sign = if s == Signed then "" else "u"
             in if i `elem` [8, 16, 32, 64]
-               then cFieldDecl (sign ++ "int" ++ show i ++ "_t") name
+               then cFieldDecl (cTypeOf ty) name
                else throw $ Exceptions.Unsupported "Unaligned bitfields."
           -- based on the fact that previously defined structs will already
           -- have been defined in the output file, we can safely use them
           -- as C types.
           (Tycon n) -> cFieldDecl n name
           (TyConapp t tys) ->
-            throw $ Exceptions.Unsupported "Higher Order types."
+            case t of
+              (Tycon "array") ->
+                let [tag, content] = tys
+                 in (fieldStr (Field (name ++ "_len") tag))
+                  ++ (cFieldDecl ((cTypeOf content) ++ " *") name)
 
 genWrite :: Env Block -> Block -> String
 genWrite gamma (Block n es) =

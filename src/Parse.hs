@@ -40,7 +40,7 @@ parseTy = parseBField <|> try parseTyConapp <|> parseTycon
   where
     parseTyConapp = do
       ty <- parseTycon
-      tys <- many1 (try (justSpaces >> parseTycon))
+      tys <- many1 (try (justSpaces >> (parseBField <|> parseTycon)))
       return $ TyConapp ty tys
     parseBField = do
       len <- many1 digit
