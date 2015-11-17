@@ -5,6 +5,7 @@ Language Features:
   Aligned bit fields
   Signedness
   Endianess
+  Named Types
 
 TODO:
 
@@ -21,8 +22,14 @@ Language Features:
   Unaligned bit fields
   Nested blocks
   Higher order types
+  Recursive Data Types
+    - Requires a change to the semantics of how blocks are introduced
+        as new types.
+    - Requires case blocks, and some concept of nil for those case blocks.
 
 
 Optimizations & implementation clean up:
   Text manipulation with Text rather than Strings
-  Maybe use langauge-c instead of plan-text manipulation
+  Use langauge-c instead of plan-text manipulation
+  Switch to tokenizing parser
+
