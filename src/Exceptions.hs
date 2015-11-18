@@ -19,7 +19,7 @@ data CompilerException = Unsupported String
 instance Show CompilerException where
   show (Unsupported s) = "Unsupported langauge feature: " ++ s
   show (UnknownBlock n) = "Unknown block: " ++ n
-  show TypeError = "Type error."
+  show TypeError = "Type error. Bug in type checker."
   show (UnknownTypeConstructor n) = "Unknown Type Constructor " ++ n
   show (MalformedHigherOrderType ty) = "Malformed Higher Order Type " ++ show ty
 

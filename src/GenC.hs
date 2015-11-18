@@ -6,8 +6,10 @@ import Ast
 import qualified Exceptions
 import qualified Data.Map as M
 import Control.Exception
+import Control.Monad
 import TypeCheck
 import Data.Maybe
+import Data.Either
 
 -- for random string generation
 import System.Random
@@ -37,10 +39,10 @@ genBlock gamma b = unlines $ map (\genFun -> genFun gamma b) genFuns
       genFuns = [ genStructure
                 , genPack
                 , genUnpack
-                , (\_ _ -> "\n")
+                , \_ _ -> "\n"
                 , genWrite
                 , genRead
-                , (\_ _ -> "\n\n")]
+                , \_ _ -> "\n\n"]
 
 
 genStructure :: Env Block -> Block -> String
@@ -73,16 +75,25 @@ genStructure gamma (Block n es) =
             case t of
               (Tycon "array") ->
                 let [tag, content] = tys
-                 in (fieldStr (Field (name ++ "_len") tag))
-                  ++ (cFieldDecl ((cTypeOf content) ++ " *") name)
+                 in fieldStr (Field (name ++ "_len") tag)
+                  ++ cFieldDecl (cTypeOf content ++ " *") name
+
+-- genSize gamma (Block blkName entries) =
+
 
 genWrite :: Env Block -> Block -> String
 genWrite gamma (Block n es) =
      "int " ++ n ++ "_write(const " ++ n ++ " *src, FILE *f)\n"
-  ++ "{\n    char buff[" ++ bs ++ "];\n"
+  ++ "{\n"
+  ++ case blkSize of
+       (Right bs) -> "    size_t blk_size = " ++ show bs ++ ";\n"
+                 ++ "    char buff[" ++ show bs ++ "];\n"
+       (Left _) -> "    size_t blk_size = " ++ n ++ "_size(src);\n"
+               ++ "    char * buff = (char*) malloc(blk_size);\n"
   ++ "    if(!"  ++ n ++ "_pack(src, buff)) return false;\n"
-  ++ "    fwrite(buff, " ++ bs ++ ", 1, f);\n}"
-    where bs = show $ blockSize gamma (Block n es)
+  ++ "    fwrite(buff, blk_size, 1, f);\n}"
+  ++ if isLeft blkSize then "    free(buff);\n" else ""
+    where blkSize = blockSize gamma (Block n es)
 
 genPack :: Env Block -> Block -> String
 genPack gamma (Block n entries) =
@@ -90,7 +101,6 @@ genPack gamma (Block n entries) =
   ++  packStmt entries 0
   ++ "\n    return true;\n}"
     where 
-      bs = show $ blockSize gamma (Block n entries)
       packStmt [] _ = ""
       packStmt (e:es) bytesWritten =
         case e of
@@ -119,19 +129,27 @@ genPack gamma (Block n entries) =
           (Field fName (Tycon tyName)) ->
                "    " ++ tyName ++ "_pack(&(src->"
             ++ fName ++ "), (tgt + " ++ show bytesWritten ++ "));\n"
-          (Field name (TyConapp _ _)) ->
-            "TODO HIGHER ORDER TYPES\n"
-            --throw $ Exceptions.Unsupported "Higher Order types."
+          (Field name tca@(TyConapp ty tys)) ->
+            case ty of
+              (Tycon "array") -> "TODO array pack code."
+              {-
+                let [tag, content] = tys
+                 in 
+                 -}
+              _ -> throw Exceptions.TypeError
 
 genRead :: Env Block -> Block -> String
 genRead gamma (Block n entries) = 
      "int " ++ n ++ "_read(" ++ n ++ " *tgt, FILE *f)\n"
-  ++ "{\n    char buff[" ++ bs ++ "];\n"
-  ++ "    memset(buff, 0, " ++ bs ++ ");\n\n"
-  ++ "    if (fread(buff, " ++ bs ++ ", 1, f) != 1) return false;\n"
+  ++ "{\n"
+  ++ case blkSize of
+       (Right bs) -> "    size_t blk_size = " ++ show bs ++ ";\n"
+                 ++ "    char buff[blk_size];\n"
+       (Left _)   -> throw $ Exceptions.Unsupported "Variable Length blocks."
+  ++ "    if (fread(buff, blk_size, 1, f) != 1) return false;\n"
   ++ "    return " ++ n ++ "_unpack(tgt, buff);\n}"
     where
-      bs = show $ blockSize gamma (Block n entries)
+      blkSize = blockSize gamma (Block n entries)
 
 genUnpack :: Env Block -> Block -> String
 genUnpack gamma (Block n entries) = 
@@ -139,7 +157,6 @@ genUnpack gamma (Block n entries) =
   ++ unpackStmt entries 0
   ++ "\n    return true;\n}"
     where
-      bs = show $ blockSize gamma (Block n entries)
       unpackStmt [] _ = ""
       unpackStmt (e:es) bytesConsumed =
         case e of
@@ -172,37 +189,30 @@ genUnpack gamma (Block n entries) =
             "TODO HIGHER ORDER TYPES\n"
             --throw $ Exceptions.Unsupported "Higher Order types."
 
-blockSize :: Env Block -> Block -> Int
-blockSize gamma (Block _ entries) =
-  let sizeOfType (BField i _ _) =
-            if i `elem` [8, 16, 32, 64]
-            then (i `div` 8)
-            else throw $ Exceptions.Unsupported "Unaligned bitfields."
-      sizeOfType (Tycon tyName) =
-            -- TODO cache results instead of recomputing
-            blockSize gamma (fromJust (tyName `M.lookup` gamma))
-      sizeOfType tca@(TyConapp t tys) =
-            case t of
-              (Tycon "array") -> foldl (+) 0 $ map sizeOfType tys
-              _               -> throw $ Exceptions.MalformedHigherOrderType tca
 
-   in
-      foldl (\a e -> case e of
-                      (Field _ t) -> a + (sizeOfType t)
-                      (Blk _) -> throw $ Exceptions.Unsupported "Nested blocks.")
-            {-
-        case e of
-          (Field _ (BField i _ _)) -> 
+-- Tries to compute the static size of the block. If the block is variable
+-- length (contains an array or list type) returns Left of the static size
+-- of the block.
+blockSize :: Env Block -> Block -> Either Int Int
+blockSize gamma (Block _ entries) =
+  let sizeOfType (Field _ (BField i _ _)) =
             if i `elem` [8, 16, 32, 64]
-            then a + (i `div` 8)
+            then Right (i `div` 8)
             else throw $ Exceptions.Unsupported "Unaligned bitfields."
-          (Field _ (Tycon tyName)) -> -- TODO cache results instead of recomputing
+      sizeOfType (Field _ (Tycon tyName)) =
             blockSize gamma (fromJust (tyName `M.lookup` gamma))
-          (Field name tca@(TyConapp t tys)) -> 
+      sizeOfType (Field _ tca@(TyConapp t tys)) =
             case t of
-              (Tycon "array") -> 
-              _               -> throw $ Exceptions.MalformedHigherOrderType tca
-          (Blk _) -> throw $ Exceptions.Unsupported "Nested blocks.")
-          -}
-      0
-      entries
+              (Tycon "array") ->
+                let [tag, _] = tys
+                 in case sizeOfType (Field "" tag) of
+                      (Right x) -> Left x
+                      (Left _) -> throw Exceptions.TypeError -- not possible
+              _               -> throw Exceptions.TypeError
+      sizeOfType (Blk _) = throw $ Exceptions.Unsupported "Nested blocks."
+      
+      acc (Right a) (Right x) = Right (a + x)
+      acc (Left a) (Right x) = Left (a + x)
+      acc (Right a) (Left x) = Left (a + x)
+      acc (Left a) (Left x) = Left (a + x)
+   in foldl acc (Right 0) $ map sizeOfType entries
