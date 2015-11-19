@@ -78,7 +78,34 @@ genStructure gamma (Block n es) =
                  in fieldStr (Field (name ++ "_len") tag)
                   ++ cFieldDecl (cTypeOf content ++ " *") name
 
--- genSize gamma (Block blkName entries) =
+genSize gamma blk@(Block blkName entries) =
+     "inline int " ++ blkName ++ "_size(const " ++ blkName ++ " const * b)\n"
+  ++ "{\n"
+  ++ "    return " ++ show staticSize
+  ++ if isStatic then ";\n}"
+                 else concatMap dynamicSizeOf entries ++ ";\n}"
+    where blkSize = blockSize gamma blk
+          isStatic = isRight blkSize
+          staticSize = case blkSize of
+                         (Right s) -> s
+                         (Left s) -> s
+          dynamicSizeOf (Blk _) = throw $ Exceptions.Unsupported "Nested blocks"
+          dynamicSizeOf (Field _ (BField {})) = ""
+          dynamicSizeOf (Field fName (Tycon tyName)) = 
+            -- We know from the typechecker that this type must be in gamma
+            " + " ++ tyName ++ "_size(b->" ++ fName ++ ")"
+          dynamicSizeOf (Field fName hot@(TyConapp ty tys)) =
+            case ty of
+              (Tycon "array") -> " + b->" ++ fName ++ "_len"
+              _ -> throw $ Exceptions.MalformedHigherOrderType hot
+
+b1 = Block "test1"
+        [Field "f1" (BField 16 Signed BigEndian),
+         Field "f2" (TyConapp (Tycon "array") [BField 16 Unsigned BigEndian,
+                                               BField 32 Unsigned BigEndian])]
+b2 = Block "test2"
+        [Field "f1" (BField 16 Signed BigEndian)]
+
 
 
 genWrite :: Env Block -> Block -> String
@@ -91,8 +118,8 @@ genWrite gamma (Block n es) =
        (Left _) -> "    size_t blk_size = " ++ n ++ "_size(src);\n"
                ++ "    char * buff = (char*) malloc(blk_size);\n"
   ++ "    if(!"  ++ n ++ "_pack(src, buff)) return false;\n"
-  ++ "    fwrite(buff, blk_size, 1, f);\n}"
-  ++ if isLeft blkSize then "    free(buff);\n" else ""
+  ++ "    fwrite(buff, blk_size, 1, f);\n"
+  ++ if isLeft blkSize then "    free(buff);\n}" else "}"
     where blkSize = blockSize gamma (Block n es)
 
 genPack :: Env Block -> Block -> String
@@ -145,7 +172,7 @@ genRead gamma (Block n entries) =
   ++ case blkSize of
        (Right bs) -> "    size_t blk_size = " ++ show bs ++ ";\n"
                  ++ "    char buff[blk_size];\n"
-       (Left _)   -> throw $ Exceptions.Unsupported "Variable Length blocks."
+       (Left _)   -> "TODO var blk len\n" --throw $ Exceptions.Unsupported "Variable Length blocks."
   ++ "    if (fread(buff, blk_size, 1, f) != 1) return false;\n"
   ++ "    return " ++ n ++ "_unpack(tgt, buff);\n}"
     where
