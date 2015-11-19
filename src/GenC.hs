@@ -45,6 +45,7 @@ genBlock gamma b = unlines $ map (\genFun -> genFun gamma b) genFuns
                 , \_ _ -> "\n\n"]
 
 
+
 genStructure :: Env Block -> Block -> String
 genStructure gamma (Block n es) =
   "typedef struct " ++ n ++ " {\n"
@@ -52,12 +53,6 @@ genStructure gamma (Block n es) =
     ++ "} " ++ n ++ ";\n"
     where
       cFieldDecl cType fName = "    " ++ cType ++ (' ' : fName) ++ ";\n"
-
-
-      -- only works on bfields
-      cTypeOf (BField i s _) = let sign = if s == Signed then "" else "u"
-                                in sign ++ "int" ++ show i ++ "_t"
-      cTypeOf _              = "" -- unsafe
 
       fieldStr (Blk b) = throw $ Exceptions.Unsupported "Nested blocks."
       fieldStr (Field name ty) =
@@ -99,13 +94,15 @@ genSize gamma blk@(Block blkName entries) =
               (Tycon "array") -> " + b->" ++ fName ++ "_len"
               _ -> throw $ Exceptions.MalformedHigherOrderType hot
 
+
+-- Some blocks it is nice to have lying around for REPL testing
 b1 = Block "test1"
         [Field "f1" (BField 16 Signed BigEndian),
          Field "f2" (TyConapp (Tycon "array") [BField 16 Unsigned BigEndian,
                                                BField 32 Unsigned BigEndian])]
 b2 = Block "test2"
-        [Field "f1" (BField 16 Signed BigEndian)]
-
+        [Field "f1" (BField 16 Signed BigEndian),
+         Field "f2" (Tycon "inner")]
 
 
 genWrite :: Env Block -> Block -> String
@@ -125,19 +122,16 @@ genWrite gamma (Block n es) =
 genPack :: Env Block -> Block -> String
 genPack gamma (Block n entries) =
      "int " ++ n ++ "_pack(const " ++ n ++ " *src, char *tgt)\n{\n"
-  ++  packStmt entries 0
-  ++ "\n    return true;\n}"
+  ++ "    size_t bytes_written = 0;\n"
+  ++  packStmts entries
+  ++ "\n    return bytes_written;\n}"
     where 
-      packStmt [] _ = ""
-      packStmt (e:es) bytesWritten =
-        case e of
-          (Blk _) -> throw $ Exceptions.Unsupported "Nested blocks."
-          (Field fName (BField i s endianness)) ->
+      packStmt (Field fName (BField i s endianness)) =
             if i `elem` [8, 16, 32, 64]
-              then "    *(" ++ wordPtrStr ++ "(tgt + " ++ show bytesWritten
-                  ++ "))" ++ " = " ++ endianFuncStr
-                  ++ "(src->" ++ fName ++ ");\n"
-                  ++ packStmt es (bytesWritten + (i `div` 8))
+              then "    *(" ++ wordPtrStr ++ "(tgt + bytes_written)) = "
+                  ++ endianFuncStr ++ "(src->" ++ fName
+                  ++ "); bytes_written += " ++ (show (i `div` 8))
+                  ++ ";\n"
               else throw $ Exceptions.Unsupported "Unaligned bitfields."
                 where
                   wordSizeStr = show i
@@ -153,17 +147,31 @@ genPack gamma (Block n entries) =
                               NativeEndian -> ""
                   wordPtrStr = '(' : signStr ++ "int" ++ wordSizeStr ++ "_t*)"
 
-          (Field fName (Tycon tyName)) ->
-               "    " ++ tyName ++ "_pack(&(src->"
-            ++ fName ++ "), (tgt + " ++ show bytesWritten ++ "));\n"
-          (Field name tca@(TyConapp ty tys)) ->
+      packStmt (Field fName (Tycon tyName)) =
+               "    bytes_written += " ++ tyName ++ "_pack(&(src->"
+            ++ fName ++ "), (tgt + bytes_written));\n"
+      packStmt (Field fName tca@(TyConapp ty tys)) =
             case ty of
-              (Tycon "array") -> "TODO array pack code."
-              {-
-                let [tag, content] = tys
-                 in 
-                 -}
+              (Tycon "array") ->
+                  let [tag, content] = tys
+                      boundCType = cTypeOf tag
+                      iteratorName = fName ++ "_iter"
+                   in "    " ++ boundCType ++ " " ++ iteratorName ++ ";\n"
+                   ++ "    for(" ++ iteratorName ++ " = 0; "
+                                ++ iteratorName ++ " < " ++ fName ++ "_len; ++" 
+                                ++ iteratorName ++ ") {\n"
+                   ++ "    "
+                      ++ packStmt (Field (fName ++ "[" ++ iteratorName ++ "]")
+                                         content)
+                   ++ "    }\n"
               _ -> throw Exceptions.TypeError
+
+      packStmts [] = ""
+      packStmts (e:es) =
+        case e of
+          (Blk _) -> throw $ Exceptions.Unsupported "Nested blocks."
+          field -> packStmt field ++ packStmts es
+
 
 genRead :: Env Block -> Block -> String
 genRead gamma (Block n entries) = 
@@ -243,3 +251,9 @@ blockSize gamma (Block _ entries) =
       acc (Right a) (Left x) = Left (a + x)
       acc (Left a) (Left x) = Left (a + x)
    in foldl acc (Right 0) $ map sizeOfType entries
+
+-- only works on bfields, helper function to compute the ctype of a given bfield
+cTypeOf :: Ty -> String
+cTypeOf (BField i s _) = let sign = if s == Signed then "" else "u"
+                          in sign ++ "int" ++ show i ++ "_t"
+cTypeOf _              = "" -- unsafe
