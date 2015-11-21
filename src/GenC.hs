@@ -90,7 +90,7 @@ genStructure gamma (Block n es) =
                   ++ cFieldDecl (cTypeOf content ++ " *") name
 
 genSize gamma blk@(Block blkName entries) =
-     "inline int " ++ blkName ++ "_size(const " ++ blkName ++ " const * b)\n"
+     "int " ++ blkName ++ "_size(const " ++ blkName ++ " const * b)\n"
   ++ "{\n"
   ++ "    return " ++ show staticSize
   ++ if isStatic then ";\n}"
@@ -247,7 +247,7 @@ genRead gamma blk@(Block blkName entries) =
         ++ "    } else {\n"
         ++ "        if (fread(buff + used, " ++ len
                         ++ ", 1, f) != 1) return false;\n"
-        ++ "        used += " ++ len ++ "\n"
+        ++ "        used += " ++ len ++ ";\n"
         ++ "    }\n"
    in
      "int " ++ blkName ++ "_read(" ++ blkName ++ " *tgt, FILE *f)\n"
@@ -309,7 +309,8 @@ genUnpack gamma (Block n entries) =
                 iteratorName = fName ++ "_iter"
              in "    " ++ cTypeOf tag ++  ' ' : iteratorName ++ " = 0;\n"
              ++ unpackStmt (Field (fName ++ "_len") tag)
-             ++ "    for(" ++ iteratorName ++ " = 0; " ++ iteratorName ++ " < "
+             ++ "    for(" ++ iteratorName ++ " = 0; "
+                        ++ iteratorName ++ " < tgt->"
                         ++ fName ++ "_len; ++" ++ iteratorName ++ ") {\n"
              ++ "    " ++ unpackStmt
                       (Field (fName ++ '[' : iteratorName ++ "]") content)

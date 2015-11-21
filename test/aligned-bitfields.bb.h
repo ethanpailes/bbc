@@ -1,17 +1,24 @@
-#ifndef BYTE_BLOCKS__IFIMWFFXGCFGMUXEXJCL
-#define BYTE_BLOCKS__IFIMWFFXGCFGMUXEXJCL
+#ifndef BYTE_BLOCKS__RSLVHNKSLUIPVULPJVDE
+#define BYTE_BLOCKS__RSLVHNKSLUIPVULPJVDE
 #include <string.h>
 #include <stdint.h>
-#ifdef __linux__
 #include <endian.h>
-#elif defined __APPLE__
-#include <machine/endian.h>
-#endif
+#include <stdlib.h>
 #include <stdio.h>
 
 #define true 1
 #define false 0
 
+int grow_buff(char ** buff, size_t * len)
+{
+    size_t old_len = *len;
+    char *tmp = *buff;
+    *len *=  2;
+    *buff = malloc(*len);
+    memcpy(*buff, tmp, old_len);
+    free(tmp);
+    return true;
+}
 typedef struct test {
     uint8_t f1;
     uint8_t f2;
@@ -20,7 +27,7 @@ typedef struct test {
     uint16_t f6;
 } test;
 
-inline int test_size(const test const * b)
+int test_size(const test const * b)
 {
     return 16;
 }
@@ -37,11 +44,12 @@ int test_pack(const test *src, char *tgt)
 }
 int test_unpack(test *tgt, const char *src)
 {
-    tgt->f1 = (* ((uint8_t*)(src + 0)));
-    tgt->f2 = (* ((uint8_t*)(src + 1)));
-    tgt->f3 = (* ((int32_t*)(src + 2)));
-    tgt->f4 = be64toh(* ((int64_t*)(src + 6)));
-    tgt->f6 = le16toh(* ((uint16_t*)(src + 14)));
+    size_t bytes_consumed = 0;
+    tgt->f1 = (* ((uint8_t*)(src + bytes_consumed))); bytes_consumed += 1;
+    tgt->f2 = (* ((uint8_t*)(src + bytes_consumed))); bytes_consumed += 1;
+    tgt->f3 = (* ((int32_t*)(src + bytes_consumed))); bytes_consumed += 4;
+    tgt->f4 = be64toh(* ((int64_t*)(src + bytes_consumed))); bytes_consumed += 8;
+    tgt->f6 = le16toh(* ((uint16_t*)(src + bytes_consumed))); bytes_consumed += 2;
 
     return true;
 }

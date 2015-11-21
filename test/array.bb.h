@@ -1,5 +1,5 @@
-#ifndef BYTE_BLOCKS__XDUGUGWTSKOGSXBIOMXS
-#define BYTE_BLOCKS__XDUGUGWTSKOGSXBIOMXS
+#ifndef BYTE_BLOCKS__NROQNUTRQOGKFQHBBMEO
+#define BYTE_BLOCKS__NROQNUTRQOGKFQHBBMEO
 #include <string.h>
 #include <stdint.h>
 #include <endian.h>
@@ -25,7 +25,7 @@ typedef struct test {
     uint32_t * f2;
 } test;
 
-inline int test_size(const test const * b)
+int test_size(const test const * b)
 {
     return 3 + (b->f2_len * 4);
 }
@@ -47,7 +47,7 @@ int test_unpack(test *tgt, const char *src)
     tgt->f1 = (* ((uint8_t*)(src + bytes_consumed))); bytes_consumed += 1;
     uint16_t f2_iter = 0;
     tgt->f2_len = be16toh(* ((uint16_t*)(src + bytes_consumed))); bytes_consumed += 2;
-    for(f2_iter = 0; f2_iter < f2_len; ++f2_iter) {
+    for(f2_iter = 0; f2_iter < tgt->f2_len; ++f2_iter) {
         tgt->f2[f2_iter] = be32toh(* ((uint32_t*)(src + bytes_consumed))); bytes_consumed += 4;
     }
 
@@ -74,7 +74,7 @@ testRSEQ0:
         goto testRSEQ0;
     } else {
         if (fread(buff + used, 1, 1, f) != 1) return false;
-        used += 1
+        used += 1;
     }
 testRSEQ1a:
     if (used + 2 > buff_len) {
@@ -82,7 +82,7 @@ testRSEQ1a:
         goto testRSEQ1a;
     } else {
         if (fread(buff + used, 2, 1, f) != 1) return false;
-        used += 2
+        used += 2;
     }
     uint16_t f2_len = *( (( uint16_t *) (buff + used)) - 1);
 testRSEQ1b:
@@ -91,7 +91,7 @@ testRSEQ1b:
         goto testRSEQ1b;
     } else {
         if (fread(buff + used, f2_len, 1, f) != 1) return false;
-        used += f2_len
+        used += f2_len;
     }
     int ret = test_unpack(tgt, buff);
     free(buff);

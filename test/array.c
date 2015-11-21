@@ -4,9 +4,9 @@
 #include <stdlib.h>
 
 
-#include "named-block.bb.h"
+#include "array.bb.h"
 
-#define TMP_FILE "/tmp/named-block.dat"
+#define TMP_FILE "/tmp/bbc-array.dat"
 
 
 int main(int argc, char *argv[])
@@ -16,18 +16,16 @@ int main(int argc, char *argv[])
   test t;
   t.f1 = 34;
   t.f2_len = 0;
-  outer_write(&t, f);
+  test_write(&t, f);
  
   fclose(f);
   FILE *in = fopen(TMP_FILE, "r");
 
-  outer t2;
-  outer_read(&t2, in);
+  test t2;
+  test_read(&t2, in);
 
-  assert(t2.fieldOne == 34);
-  assert(t2.fieldTwo == 48);
-  assert(t.nested.fieldOne == 44);
-  assert(t.nested.fieldTwo == 9324);
+  assert(t2.f1 == 34);
+  assert(t2.f2_len == 0);
 
   execl("rm", "rm", "-f", TMP_FILE, NULL);
 

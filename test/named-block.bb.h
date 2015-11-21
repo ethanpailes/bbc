@@ -1,5 +1,5 @@
-#ifndef BYTE_BLOCKS__XMEGKZTUXTUWKXBSAGTD
-#define BYTE_BLOCKS__XMEGKZTUXTUWKXBSAGTD
+#ifndef BYTE_BLOCKS__VAJVHCXVHHCDZPKLOIZO
+#define BYTE_BLOCKS__VAJVHCXVHHCDZPKLOIZO
 #include <string.h>
 #include <stdint.h>
 #include <endian.h>
@@ -17,13 +17,14 @@ int grow_buff(char ** buff, size_t * len)
     *buff = malloc(*len);
     memcpy(*buff, tmp, old_len);
     free(tmp);
+    return true;
 }
 typedef struct inner {
     uint8_t fieldOne;
     uint64_t fieldTwo;
 } inner;
 
-inline int inner_size(const inner const * b)
+int inner_size(const inner const * b)
 {
     return 9;
 }
@@ -68,7 +69,7 @@ typedef struct outer {
     inner nested;
 } outer;
 
-inline int outer_size(const outer const * b)
+int outer_size(const outer const * b)
 {
     return 15;
 }
