@@ -1,5 +1,5 @@
-#ifndef BYTE_BLOCKS__WISEZYSJVERSHCUFYEWT
-#define BYTE_BLOCKS__WISEZYSJVERSHCUFYEWT
+#ifndef BYTE_BLOCKS__XIBEBVXBRZZDNCJUDDBB
+#define BYTE_BLOCKS__XIBEBVXBRZZDNCJUDDBB
 #include <string.h>
 #include <stdint.h>
 #ifdef __linux__

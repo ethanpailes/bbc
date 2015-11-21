@@ -1,5 +1,5 @@
-#ifndef BYTE_BLOCKS__LOAYLZYOZXMDRYVURURW
-#define BYTE_BLOCKS__LOAYLZYOZXMDRYVURURW
+#ifndef BYTE_BLOCKS__IFIMWFFXGCFGMUXEXJCL
+#define BYTE_BLOCKS__IFIMWFFXGCFGMUXEXJCL
 #include <string.h>
 #include <stdint.h>
 #ifdef __linux__

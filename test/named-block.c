@@ -1,11 +1,13 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <assert.h>
+#include <stdlib.h>
 
 
 #include "named-block.bb.h"
 
 #define TMP_FILE "/tmp/named-block.dat"
+
 
 int main(int argc, char *argv[])
 {
@@ -29,7 +31,7 @@ int main(int argc, char *argv[])
   assert(t.nested.fieldOne == 44);
   assert(t.nested.fieldTwo == 9324);
 
-  execl("rm", "-f", TMP_FILE, NULL);
+  execl("rm", "rm", "-f", TMP_FILE, NULL);
 
   return 0;
 }

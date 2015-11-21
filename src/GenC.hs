@@ -15,19 +15,33 @@ import Data.Either
 import System.Random
 import System.IO.Unsafe
 
+
+-- TODO make this a compiler flag.
+readInitialBufferSize :: Int
+readInitialBufferSize = 1024
+
+--------------------------------------------------------------------------------
+
+
 gen :: Env Block -> [Block] -> String
 gen gamma bs =
          "#ifndef " ++ headerGaurd ++ "\n#define " ++ headerGaurd
-      ++ "\n#include <string.h>\n#include <stdint.h>\n"
-      -- DEPENDENCY WRANGLING
-      ++ "#ifdef __linux__\n"
+      ++ "\n#include <string.h>\n"
+      ++ "#include <stdint.h>\n"
       ++ "#include <endian.h>\n"
-      ++ "#elif defined __APPLE__\n"
-      ++ "#include <machine/endian.h>\n"
-      ++ "#endif\n"
-      -- END DEPENDENCY WRANGLING
-      ++ "#include <stdio.h>\n\n#define true 1\n"
+      ++ "#include <stdlib.h>\n"
+      ++ "#include <stdio.h>\n\n"
+      ++ "#define true 1\n"
       ++ "#define false 0\n\n"
+      ++ "int grow_buff(char ** buff, size_t * len)\n"
+      ++ "{\n"
+      ++ "    size_t old_len = *len;\n"
+      ++ "    char *tmp = *buff;\n"
+      ++ "    *len *=  2;\n"
+      ++ "    *buff = malloc(*len);\n"
+      ++ "    memcpy(*buff, tmp, old_len);\n"
+      ++ "    free(tmp);\n"
+      ++ "}\n"
       ++ concatMap (genBlock gamma) bs
       ++ "\n#endif\n"
           where headerGaurd = "BYTE_BLOCKS__" ++
@@ -184,18 +198,20 @@ genPack gamma (Block n entries) =
           field -> packStmt field ++ packStmts es
 
 
+{-
+ - The generated code for read has to use a growing buffer to figure out
+ - to read in a given byte block.
+ -}
 genRead :: Env Block -> Block -> String
-genRead gamma (Block n entries) = 
-     "int " ++ n ++ "_read(" ++ n ++ " *tgt, FILE *f)\n"
+genRead gamma blk@(Block blkName entries) = 
+     "int " ++ blkName ++ "_read(" ++ blkName ++ " *tgt, FILE *f)\n"
   ++ "{\n"
-  ++ case blkSize of
+  ++ case blockSize gamma blk of
        (Right bs) -> "    size_t blk_size = " ++ show bs ++ ";\n"
                  ++ "    char buff[blk_size];\n"
-       (Left _)   -> "TODO var blk len\n" --throw $ Exceptions.Unsupported "Variable Length blocks."
+       (Left _)   -> "TODO var blk len\n"
   ++ "    if (fread(buff, blk_size, 1, f) != 1) return false;\n"
-  ++ "    return " ++ n ++ "_unpack(tgt, buff);\n}"
-    where
-      blkSize = blockSize gamma (Block n entries)
+  ++ "    return " ++ blkName ++ "_unpack(tgt, buff);\n}"
 
 genUnpack :: Env Block -> Block -> String
 genUnpack gamma (Block n entries) = 
