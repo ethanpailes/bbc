@@ -1,5 +1,5 @@
-#ifndef BYTE_BLOCKS__BAMDBYSIVNCDOWTNVRRH
-#define BYTE_BLOCKS__BAMDBYSIVNCDOWTNVRRH
+#ifndef BYTE_BLOCKS__LOAYLZYOZXMDRYVURURW
+#define BYTE_BLOCKS__LOAYLZYOZXMDRYVURURW
 #include <string.h>
 #include <stdint.h>
 #ifdef __linux__
@@ -14,29 +14,34 @@
 
 typedef struct test {
     uint8_t f1;
-    uint16_t f2_len;
-    uint32_t * f2;
+    uint8_t f2;
+    int32_t f3;
+    int64_t f4;
+    uint16_t f6;
 } test;
 
 inline int test_size(const test const * b)
 {
-    return 3 + (b->f2_len * 4);
+    return 16;
 }
 int test_pack(const test *src, char *tgt)
 {
     size_t bytes_written = 0;
     *((uint8_t*)(tgt + bytes_written)) = (src->f1); bytes_written += 1;
-    uint16_t f2_iter;
-    for(f2_iter = 0; f2_iter < f2_len; ++f2_iter) {
-        *((uint32_t*)(tgt + bytes_written)) = htobe32(src->f2[f2_iter]); bytes_written += 4;
-    }
+    *((uint8_t*)(tgt + bytes_written)) = (src->f2); bytes_written += 1;
+    *((int32_t*)(tgt + bytes_written)) = (src->f3); bytes_written += 4;
+    *((int64_t*)(tgt + bytes_written)) = htobe64(src->f4); bytes_written += 8;
+    *((uint16_t*)(tgt + bytes_written)) = htole16(src->f6); bytes_written += 2;
 
     return bytes_written;
 }
 int test_unpack(test *tgt, const char *src)
 {
     tgt->f1 = (* ((uint8_t*)(src + 0)));
-TODO HIGHER ORDER TYPES
+    tgt->f2 = (* ((uint8_t*)(src + 1)));
+    tgt->f3 = (* ((int32_t*)(src + 2)));
+    tgt->f4 = be64toh(* ((int64_t*)(src + 6)));
+    tgt->f6 = le16toh(* ((uint16_t*)(src + 14)));
 
     return true;
 }
@@ -44,15 +49,15 @@ TODO HIGHER ORDER TYPES
 
 int test_write(const test *src, FILE *f)
 {
-    size_t blk_size = test_size(src);
-    char * buff = (char*) malloc(blk_size);
+    size_t blk_size = 16;
+    char buff[16];
     if(!test_pack(src, buff)) return false;
     fwrite(buff, blk_size, 1, f);
-    free(buff);
 }
 int test_read(test *tgt, FILE *f)
 {
-TODO var blk len
+    size_t blk_size = 16;
+    char buff[blk_size];
     if (fread(buff, blk_size, 1, f) != 1) return false;
     return test_unpack(tgt, buff);
 }
