@@ -18,6 +18,12 @@ Clean up Front End of Compiler:
     each block so the unsafe API is somewhat usable.
 
 
+Generated Methods to Add:
+  _init to zero out all the array tags.
+  _set and _get functions
+  _append function which can append nicely to arrays (growing them
+      dynamically).
+
 Language Features:
   Unaligned bit fields
   Nested blocks

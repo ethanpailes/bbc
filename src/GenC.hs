@@ -41,6 +41,7 @@ gen gamma bs =
       ++ "    *buff = malloc(*len);\n"
       ++ "    memcpy(*buff, tmp, old_len);\n"
       ++ "    free(tmp);\n"
+      ++ "    return true;\n"
       ++ "}\n"
       ++ concatMap (genBlock gamma) bs
       ++ "\n#endif\n"
@@ -181,10 +182,11 @@ genPack gamma (Block n entries) =
                   let [tag, content] = tys
                       boundCType = cTypeOf tag
                       iteratorName = fName ++ "_iter"
-                   in "    " ++ boundCType ++ " " ++ iteratorName ++ ";\n"
+                   in packStmt (Field (fName ++ "_len") tag)
+                   ++ "    " ++ boundCType ++ " " ++ iteratorName ++ ";\n"
                    ++ "    for(" ++ iteratorName ++ " = 0; "
-                                ++ iteratorName ++ " < " ++ fName ++ "_len; ++" 
-                                ++ iteratorName ++ ") {\n"
+                          ++ iteratorName ++ " < src->" ++ fName ++ "_len; ++" 
+                          ++ iteratorName ++ ") {\n"
                    ++ "    "
                       ++ packStmt (Field (fName ++ "[" ++ iteratorName ++ "]")
                                          content)
@@ -204,14 +206,68 @@ genPack gamma (Block n entries) =
  -}
 genRead :: Env Block -> Block -> String
 genRead gamma blk@(Block blkName entries) = 
+  let -- breaks entries up into chunks that we can read all at once
+      readSequences :: Block -> [[Entry]]
+      readSequences blk =
+        let
+          rs :: Block -> [[Entry]] -> [Entry] -> [[Entry]]
+          rs (Block _ []) finished acc = reverse acc : finished
+          rs (Block bName (e:es)) finished acc =
+            case e of
+              (Blk _) -> throw $ Exceptions.Unsupported "Nested blocks"
+              (Field _ (BField {})) -> rs (Block bName es) finished (e : acc)
+              (Field _ (Tycon tyName)) ->
+                  let (Block _ blkEntries) = fromJust (tyName `M.lookup` gamma)
+                   in readSequences (Block "BOGUS" (blkEntries ++ es ))
+              (Field _ (TyConapp ty tys)) ->
+                case ty of
+                  (Tycon "array") ->
+                    rs (Block bName es) ((reverse acc : finished) ++ [[e]]) []
+                  _ -> throw Exceptions.TypeError
+         in filter (/= []) $ rs blk [[]] []
+      readSequenceStr :: ([Entry], String) -> String
+      readSequenceStr ([], _) = throw Exceptions.RealityBreach
+      readSequenceStr ([Field fName (TyConapp (Tycon "array")
+                                              [tag, content])], rSeqTag) =
+                readSequenceStr ([Field "BOGUS" tag], rSeqTag ++ "a")
+             ++ "    " ++ tagCType ++ " " ++ fName ++ "_len = *( (( "
+                                      ++ tagCType ++" *) (buff + used)) - 1);\n"
+             ++ readFixedSequence (fName ++ "_len") (rSeqTag ++ "b")
+                where tagCType = cTypeOf tag
+      readSequenceStr (es, rSeqTag) =
+        case blockSize gamma (Block "BOGUS" es) of
+          (Right n) -> readFixedSequence (show n) rSeqTag
+          (Left _) -> throw Exceptions.RealityBreach
+      readFixedSequence :: String -> String -> String
+      readFixedSequence len tag =  
+           tag ++ ":\n"
+        ++ "    if (used + " ++ len ++ " > buff_len) {\n"
+        ++ "        grow_buff(&buff, &buff_len);\n"
+        ++ "        goto " ++ tag ++ ";\n"
+        ++ "    } else {\n"
+        ++ "        if (fread(buff + used, " ++ len
+                        ++ ", 1, f) != 1) return false;\n"
+        ++ "        used += " ++ len ++ "\n"
+        ++ "    }\n"
+   in
      "int " ++ blkName ++ "_read(" ++ blkName ++ " *tgt, FILE *f)\n"
   ++ "{\n"
   ++ case blockSize gamma blk of
        (Right bs) -> "    size_t blk_size = " ++ show bs ++ ";\n"
-                 ++ "    char buff[blk_size];\n"
-       (Left _)   -> "TODO var blk len\n"
-  ++ "    if (fread(buff, blk_size, 1, f) != 1) return false;\n"
-  ++ "    return " ++ blkName ++ "_unpack(tgt, buff);\n}"
+              ++ "    char buff[blk_size];\n"
+              ++ "    if (fread(buff, blk_size, 1, f) != 1) return false;\n"
+              ++ "    return " ++ blkName ++ "_unpack(tgt, buff);\n}"
+       (Left _) ->
+                 "    size_t buff_len = " ++ show readInitialBufferSize ++ ";\n"
+              ++ "    size_t used = 0;\n"
+              ++ "    char *buff = malloc(buff_len);\n"
+              ++ concatMap readSequenceStr
+                    (zip (readSequences blk)
+                       (map (\i -> blkName ++ "RSEQ" ++ show i) [0 .. ]))
+              ++ "    int ret = " ++ blkName ++ "_unpack(tgt, buff);\n"
+              ++ "    free(buff);\n"
+              ++ "    return ret;\n}"
+
 
 genUnpack :: Env Block -> Block -> String
 genUnpack gamma (Block n entries) = 
@@ -239,7 +295,7 @@ genUnpack gamma (Block n entries) =
                   ++ " = " ++ endianFuncStr ++ "(* (" ++ wordPtrStr
                   ++ "(src + bytes_consumed))); "
                   ++ "bytes_consumed += "
-                  ++ (show (fromJust (byteSizeOf gamma ty)))
+                  ++ show (fromJust (byteSizeOf gamma ty))
                   ++ ";\n"
               else throw $ Exceptions.Unsupported "Unaligned bitfields."
 
@@ -283,7 +339,7 @@ blockSize gamma (Block _ entries) =
                 let [tag, _] = tys
                  in case sizeOfType (Field "" tag) of
                       (Right x) -> Left x
-                      (Left _) -> throw Exceptions.TypeError -- not possible
+                      (Left _) -> throw Exceptions.RealityBreach -- not possible
               _               -> throw Exceptions.TypeError
       sizeOfType (Blk _) = throw $ Exceptions.Unsupported "Nested blocks."
       

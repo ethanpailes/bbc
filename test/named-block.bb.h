@@ -1,17 +1,23 @@
-#ifndef BYTE_BLOCKS__XIBEBVXBRZZDNCJUDDBB
-#define BYTE_BLOCKS__XIBEBVXBRZZDNCJUDDBB
+#ifndef BYTE_BLOCKS__XMEGKZTUXTUWKXBSAGTD
+#define BYTE_BLOCKS__XMEGKZTUXTUWKXBSAGTD
 #include <string.h>
 #include <stdint.h>
-#ifdef __linux__
 #include <endian.h>
-#elif defined __APPLE__
-#include <machine/endian.h>
-#endif
+#include <stdlib.h>
 #include <stdio.h>
 
 #define true 1
 #define false 0
 
+int grow_buff(char ** buff, size_t * len)
+{
+    size_t old_len = *len;
+    char *tmp = *buff;
+    *len *=  2;
+    *buff = malloc(*len);
+    memcpy(*buff, tmp, old_len);
+    free(tmp);
+}
 typedef struct inner {
     uint8_t fieldOne;
     uint64_t fieldTwo;
@@ -31,8 +37,9 @@ int inner_pack(const inner *src, char *tgt)
 }
 int inner_unpack(inner *tgt, const char *src)
 {
-    tgt->fieldOne = (* ((uint8_t*)(src + 0)));
-    tgt->fieldTwo = be64toh(* ((uint64_t*)(src + 1)));
+    size_t bytes_consumed = 0;
+    tgt->fieldOne = (* ((uint8_t*)(src + bytes_consumed))); bytes_consumed += 1;
+    tgt->fieldTwo = be64toh(* ((uint64_t*)(src + bytes_consumed))); bytes_consumed += 8;
 
     return true;
 }
@@ -76,9 +83,10 @@ int outer_pack(const outer *src, char *tgt)
 }
 int outer_unpack(outer *tgt, const char *src)
 {
-    tgt->fieldOne = (* ((int16_t*)(src + 0)));
-    tgt->fieldTwo = (* ((uint32_t*)(src + 2)));
-    inner_unpack(&(tgt->nested), (src + 6));
+    size_t bytes_consumed = 0;
+    tgt->fieldOne = (* ((int16_t*)(src + bytes_consumed))); bytes_consumed += 2;
+    tgt->fieldTwo = (* ((uint32_t*)(src + bytes_consumed))); bytes_consumed += 4;
+    inner_unpack(&(tgt->nested), (src + bytes_consumed));
 
     return true;
 }
