@@ -37,6 +37,7 @@ genBlock :: Env Block -> Block -> String
 genBlock gamma b = unlines $ map (\genFun -> genFun gamma b) genFuns
     where
       genFuns = [ genStructure
+                , genSize
                 , genPack
                 , genUnpack
                 , \_ _ -> "\n"
@@ -91,7 +92,16 @@ genSize gamma blk@(Block blkName entries) =
             " + " ++ tyName ++ "_size(b->" ++ fName ++ ")"
           dynamicSizeOf (Field fName hot@(TyConapp ty tys)) =
             case ty of
-              (Tycon "array") -> " + b->" ++ fName ++ "_len"
+              (Tycon "array") -> 
+                let [tag, content] = tys
+                    bSize = byteSizeOf gamma content
+                 in case bSize of
+                      (Just i) -> " + (b->" ++fName++ "_len * " ++ show i ++ ")"
+                      Nothing ->
+                        case content of
+                          (Tycon tyName) -> " + " ++ tyName
+                                            ++ "_size(&(b->" ++ fName ++ "))"
+                          _ -> throw Exceptions.TypeError
               _ -> throw $ Exceptions.MalformedHigherOrderType hot
 
 
@@ -101,8 +111,7 @@ b1 = Block "test1"
          Field "f2" (TyConapp (Tycon "array") [BField 16 Unsigned BigEndian,
                                                BField 32 Unsigned BigEndian])]
 b2 = Block "test2"
-        [Field "f1" (BField 16 Signed BigEndian),
-         Field "f2" (Tycon "inner")]
+        [Field "f1" (BField 16 Signed BigEndian)]
 
 
 genWrite :: Env Block -> Block -> String
@@ -126,11 +135,13 @@ genPack gamma (Block n entries) =
   ++  packStmts entries
   ++ "\n    return bytes_written;\n}"
     where 
-      packStmt (Field fName (BField i s endianness)) =
+      packStmt (Blk _) = throw Exceptions.TypeError
+      packStmt (Field fName ty@(BField i s endianness)) =
             if i `elem` [8, 16, 32, 64]
               then "    *(" ++ wordPtrStr ++ "(tgt + bytes_written)) = "
                   ++ endianFuncStr ++ "(src->" ++ fName
-                  ++ "); bytes_written += " ++ (show (i `div` 8))
+                  ++ "); bytes_written += " ++
+                                show (fromJust (byteSizeOf gamma ty))
                   ++ ";\n"
               else throw $ Exceptions.Unsupported "Unaligned bitfields."
                 where
@@ -189,40 +200,54 @@ genRead gamma (Block n entries) =
 genUnpack :: Env Block -> Block -> String
 genUnpack gamma (Block n entries) = 
      "int " ++ n ++ "_unpack(" ++ n ++ " *tgt, const char *src)\n{\n"
-  ++ unpackStmt entries 0
+  ++ "    size_t bytes_consumed = 0;\n"
+  ++ unpackStmts entries
   ++ "\n    return true;\n}"
     where
-      unpackStmt [] _ = ""
-      unpackStmt (e:es) bytesConsumed =
-        case e of
-          (Blk _) -> throw $ Exceptions.Unsupported "Nested blocks."
-          (Field fName (BField i s endianness)) ->
-            if i `elem` [8, 16, 32, 64]
+      unpackStmt (Blk _) = throw $ Exceptions.Unsupported "Nested blocks."
+      unpackStmt (Field fName ty@(BField i s endianness)) =
+        let wordSizeStr = show i
+            signStr = case s of
+                        Signed -> ""
+                        Unsigned -> "u"
+            endianFuncStr = 
+              if i <= 8
+                 then ""
+                 else case endianness of
+                        BigEndian -> "be" ++ wordSizeStr ++ "toh"
+                        LittleEndian -> "le" ++ wordSizeStr ++ "toh"
+                        NativeEndian -> ""
+            wordPtrStr = '(' : signStr ++ "int" ++ wordSizeStr ++ "_t*)"
+         in if i `elem` [8, 16, 32, 64]
               then "    tgt->" ++ fName
-                      ++ " = " ++ endianFuncStr ++ "(* (" ++ wordPtrStr
-                      ++ "(src + " ++ show bytesConsumed ++ ")));\n"
-                      ++ unpackStmt es (bytesConsumed + (i `div` 8))
+                  ++ " = " ++ endianFuncStr ++ "(* (" ++ wordPtrStr
+                  ++ "(src + bytes_consumed))); "
+                  ++ "bytes_consumed += "
+                  ++ (show (fromJust (byteSizeOf gamma ty)))
+                  ++ ";\n"
               else throw $ Exceptions.Unsupported "Unaligned bitfields."
-                where
-                  wordSizeStr = show i
-                  signStr = case s of
-                              Signed -> ""
-                              Unsigned -> "u"
-                  endianFuncStr = 
-                    if i <= 8
-                       then ""
-                       else case endianness of
-                              BigEndian -> "be" ++ wordSizeStr ++ "toh"
-                              LittleEndian -> "le" ++ wordSizeStr ++ "toh"
-                              NativeEndian -> ""
-                  wordPtrStr = '(' : signStr ++ "int" ++ wordSizeStr ++ "_t*)"
 
-          (Field fName (Tycon tyName)) ->
+      unpackStmt (Field fName (Tycon tyName)) =
             "    " ++ tyName ++ "_unpack(&(tgt->"
-                ++ fName ++ "), (src + " ++ show bytesConsumed ++ "));\n"
-          (Field name (TyConapp _ _)) ->
-            "TODO HIGHER ORDER TYPES\n"
-            --throw $ Exceptions.Unsupported "Higher Order types."
+                ++ fName ++ "), (src + bytes_consumed));\n"
+      unpackStmt (Field fName (TyConapp ty tys)) =
+        case ty of
+          (Tycon "array") ->
+            let [tag, content] = tys
+                iteratorName = fName ++ "_iter"
+             in "    " ++ cTypeOf tag ++  ' ' : iteratorName ++ " = 0;\n"
+             ++ unpackStmt (Field (fName ++ "_len") tag)
+             ++ "    for(" ++ iteratorName ++ " = 0; " ++ iteratorName ++ " < "
+                        ++ fName ++ "_len; ++" ++ iteratorName ++ ") {\n"
+             ++ "    " ++ unpackStmt
+                      (Field (fName ++ '[' : iteratorName ++ "]") content)
+             ++ "    }\n"
+          _ -> throw Exceptions.TypeError
+      unpackStmts [] = ""
+      unpackStmts (e:es) =
+        case e of
+          (Blk _) -> throw $ Exceptions.Unsupported "Nested Blocks"
+          field -> unpackStmt field ++ unpackStmts es
 
 
 -- Tries to compute the static size of the block. If the block is variable
@@ -251,6 +276,18 @@ blockSize gamma (Block _ entries) =
       acc (Right a) (Left x) = Left (a + x)
       acc (Left a) (Left x) = Left (a + x)
    in foldl acc (Right 0) $ map sizeOfType entries
+
+byteSizeOf :: Env Block -> Ty -> Maybe Int
+byteSizeOf _     (BField i _ _) = Just $ i `div` 8
+byteSizeOf gamma (Tycon tyName) =
+      foldl
+        (liftM2 (+))
+        (Just 0)
+        (map (byteSizeOf gamma . typeOf) entries)
+    where (Block _ entries) = fromJust (tyName `M.lookup` gamma)
+          typeOf (Blk _) = throw $ Exceptions.Unsupported "Nested blocks"
+          typeOf (Field _ ty) = ty
+byteSizeOf _     (TyConapp _ _) = Nothing
 
 -- only works on bfields, helper function to compute the ctype of a given bfield
 cTypeOf :: Ty -> String
