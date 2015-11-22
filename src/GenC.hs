@@ -88,14 +88,16 @@ genStructure gamma (Block n es) =
               (Tycon "array") ->
                 let [tag, content] = tys
                  in fieldStr (Field (name ++ "_len") tag)
-                  ++ cFieldDecl (cTypeOf content ++ " *") name
+                 ++ case content of
+                      (BField {}) -> cFieldDecl (cTypeOf content ++ " *") name
+                      (Tycon tyName) -> "    " ++tyName++ " * " ++ name ++ ";\n"
 
 genSize gamma blk@(Block blkName entries) =
      "int " ++ blkName ++ "_size(const " ++ blkName ++ " const * b)\n"
   ++ "{\n"
-  ++ "    return " ++ show staticSize
-  ++ if isStatic then ";\n}"
-                 else concatMap dynamicSizeOf entries ++ ";\n}"
+  ++ "    int size = " ++ show staticSize ++ ";\n"
+  ++ (if isStatic then "" else concatMap dynamicSizeOf entries)
+  ++ "    return size;\n}"
     where blkSize = blockSize gamma blk
           isStatic = isRight blkSize
           staticSize = case blkSize of
@@ -105,30 +107,42 @@ genSize gamma blk@(Block blkName entries) =
           dynamicSizeOf (Field _ (BField {})) = ""
           dynamicSizeOf (Field fName (Tycon tyName)) = 
             -- We know from the typechecker that this type must be in gamma
-            " + " ++ tyName ++ "_size(b->" ++ fName ++ ")"
+            "    size += " ++ tyName ++ "_size(b->" ++ fName ++ ");\n"
           dynamicSizeOf (Field fName hot@(TyConapp ty tys)) =
             case ty of
               (Tycon "array") -> 
                 let [tag, content] = tys
                     bSize = byteSizeOf gamma content
                  in case bSize of
-                      (Just i) -> " + (b->" ++fName++ "_len * " ++ show i ++ ")"
+                      (Just i) ->
+                        "    size += (b->"++fName++"_len * " ++ show i ++ ");\n"
                       Nothing ->
                         case content of
-                          (Tycon tyName) -> " + " ++ tyName
-                                            ++ "_size(&(b->" ++ fName ++ "))"
+                          (Tycon tyName) ->
+                            let iter = fName ++ "_iter"
+                             in "    " ++ cTypeOf tag ++ ' ' : iter ++ " = 0;\n"
+                            ++ "    for("++iter++" = 0; "++iter++" < b->"++fName
+                                   ++"_len; ++"++iter++") {\n"
+                            ++ "        size += " ++ tyName
+                                   ++ "_size(b->"++fName++" + "++iter++");\n"
+                            ++ "    }\n"
                           _ -> throw Exceptions.TypeError
-              _ -> throw $ Exceptions.MalformedHigherOrderType hot
+              _ -> throw $ Exceptions.MalformedHigherOrderType "genSize:" hot
 
 
 -- Some blocks it is nice to have lying around for REPL testing
+b2 = Block "test2"
+        [Field "f1" (BField 32 Signed BigEndian),
+         Field "f2" (TyConapp (Tycon "array") [BField 16 Unsigned LittleEndian,
+                                               BField 32 Signed BigEndian])]
+b3 = Block "test3"
+        [Field "f1" (BField 32 Signed BigEndian)]
+
 b1 = Block "test1"
         [Field "f1" (BField 16 Signed BigEndian),
          Field "f2" (TyConapp (Tycon "array") [BField 16 Unsigned BigEndian,
-                                               BField 32 Unsigned BigEndian])]
-b2 = Block "test2"
-        [Field "f1" (BField 8 Signed BigEndian)]
-
+                                               Tycon "test2"])]
+gamma' = M.insert "test2" b2 TypeCheck.gammaInit
 
 genWrite :: Env Block -> Block -> String
 genWrite gamma blk@(Block n es) =
@@ -232,12 +246,24 @@ genRead gamma blk@(Block blkName entries) =
       readSequenceStr ([Field fName (TyConapp (Tycon "array")
                                               [tag, content])], rSeqTag) =
                 readSequenceStr ([Field "BOGUS" tag], rSeqTag ++ "a")
-             ++ "    " ++ tagCType ++ " " ++ fName ++ "_len = "
+             ++ "    " ++ cTypeOf tag ++ " " ++ fName ++ "_len = "
                             ++ endianReadFuncStr tag ++ "(*( (( "
-                            ++ tagCType ++" *) (buff + used)) - 1));\n"
-             ++ readFixedSequence lenStr (rSeqTag ++ "b") (lenStr ++ " && ")
-                where tagCType = cTypeOf tag
-                      lenStr = fName ++ "_len"
+                            ++ cTypeOf tag ++" *) (buff + used)) - 1));\n"
+             ++ (case byteSizeOf gamma content of
+                  (Just n) ->
+                    readFixedSequence lenStr (rSeqTag ++ "b") (lenStr ++ " && ")
+                        where lenStr = '(' : fName ++ "_len"
+                                            ++ " * " ++ show n ++ ")"
+                  Nothing ->
+                       "    " ++ cTypeOf tag ++ ' ' : iter ++ " = 0;\n"
+                    ++ "    for(" ++ iter ++ " = 0; " ++ iter
+                             ++ " < " ++ fName ++ "_len; ++" ++ iter ++ ") {\n"
+                    ++ "        " ++ tyName ++ "_read_new(tgt->"
+                                  ++ fName ++ " + " ++ iter ++ ", f);" ++ "\n"
+                    ++ "    }\n"
+                        where iter = fName ++ "_iter"
+                              (Tycon tyName) = content)
+
       readSequenceStr (es, rSeqTag) =
         case blockSize gamma (Block "BOGUS" es) of
           (Right n) -> readFixedSequence (show n) rSeqTag ""
@@ -307,8 +333,16 @@ genUnpack gamma (Block n entries) =
                 iteratorName = fName ++ "_iter"
              in "    " ++ cTypeOf tag ++  ' ' : iteratorName ++ " = 0;\n"
              ++ unpackStmt (Field (fName ++ "_len") tag)
-             ++ "    tgt->" ++ fName ++ " = malloc(tgt->" ++ fName ++ "_len * "
-                      ++ show (fromJust (byteSizeOf gamma content)) ++ ");\n"
+             ++ (case content of
+                  (BField {}) ->
+                     "    tgt->" ++ fName ++ " = malloc(tgt->"
+                                 ++ fName ++ "_len * "
+                    ++ show (fromJust (byteSizeOf gamma content)) ++ ");\n"
+                  (Tycon tyName) ->
+                       "    tgt->" ++ fName ++ " = malloc(tgt->"
+                              ++ fName ++ "_len * sizeof(" ++ tyName ++ "));\n"
+                  _ -> throw (Exceptions.Unsupported
+                             "Nested Higher Order types."))
              ++ "    for(" ++ iteratorName ++ " = 0; "
                         ++ iteratorName ++ " < tgt->"
                         ++ fName ++ "_len; ++" ++ iteratorName ++ ") {\n"
@@ -329,9 +363,21 @@ genFree gamma blk@(Block bName entries) =
       freeStr (Field _ (BField {})) = Nothing
       freeStr (Field _ (Tycon tyName)) = Nothing -- TODO lookup
       freeStr (Field fName (TyConapp (Tycon "array") [tag, content])) =
-        Just $ "    free(tgt->" ++ fName ++ "); tgt->" ++ fName ++ " = NULL;\n"
+        Just 
+          ((case content of
+            (BField {}) -> "" -- No need to free each element
+            (Tycon tyName) ->
+                 "    " ++ cTypeOf tag ++ ' ' : iter ++ " = 0;\n"
+              ++ "    for(" ++ iter ++ " = 0; " ++ iter ++ " < "
+                         ++ "tgt->" ++ fName ++ "_len; ++" ++ iter ++ ") {\n"
+              ++ "        " ++ tyName ++ "_free(tgt->"
+                              ++ fName ++ " + " ++ iter ++ ");\n"
+              ++ "    }\n"
+              where iter = fName ++ "_iter"
+            (TyConapp {}) -> throw Exceptions.TypeError)
+          ++ "    free(tgt->" ++ fName ++ "); tgt->" ++ fName ++ " = NULL;\n")
       freeStr (Field _ hot@(TyConapp _ _)) = 
-        throw $ Exceptions.MalformedHigherOrderType hot
+        throw $ Exceptions.MalformedHigherOrderType "genFree:" hot
    in
      "void " ++ bName ++ "_free(" ++ bName ++ " *tgt)\n"
   ++ "{\n"
@@ -383,7 +429,7 @@ byteSizeOf gamma (Tycon tyName) =
         (Just 0)
         (map (byteSizeOf gamma . typeOf) entries)
     where (Block _ entries) = fromJust (tyName `M.lookup` gamma)
-          typeOf (Blk _) = throw $ Exceptions.Unsupported "Nested blocks"
+          typeOf (Blk _) = throw $ Exceptions.Unsupported "Nested blocks."
           typeOf (Field _ ty) = ty
 byteSizeOf _     (TyConapp _ _) = Nothing
 
@@ -391,4 +437,5 @@ byteSizeOf _     (TyConapp _ _) = Nothing
 cTypeOf :: Ty -> String
 cTypeOf (BField i s _) = let sign = if s == Signed then "" else "u"
                           in sign ++ "int" ++ show i ++ "_t"
+cTypeOf (Tycon tyName) = tyName
 cTypeOf _              = "" -- unsafe

@@ -13,7 +13,7 @@ data CompilerException = Unsupported String
                        | UnknownBlock Name
                        | TypeError
                        | UnknownTypeConstructor Name
-                       | MalformedHigherOrderType Ty
+                       | MalformedHigherOrderType String Ty
                        | RealityBreach
   deriving( Typeable )
 
@@ -22,7 +22,8 @@ instance Show CompilerException where
   show (UnknownBlock n) = "Unknown block: " ++ n
   show TypeError = "Type error. Bug in type checker."
   show (UnknownTypeConstructor n) = "Unknown Type Constructor " ++ n
-  show (MalformedHigherOrderType ty) = "Malformed Higher Order Type " ++ show ty
+  show (MalformedHigherOrderType s ty) =
+    s ++ " Malformed Higher Order Type: " ++ show ty
   show RealityBreach = "Reality Breached. Please report this as a bug."
 
 instance Exception CompilerException

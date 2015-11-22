@@ -1,5 +1,5 @@
-#ifndef BYTE_BLOCKS__UWVPMSSKZOBYUGGVZVBL
-#define BYTE_BLOCKS__UWVPMSSKZOBYUGGVZVBL
+#ifndef BYTE_BLOCKS__BZZISRBJHYWZLIVDPETT
+#define BYTE_BLOCKS__BZZISRBJHYWZLIVDPETT
 #include <string.h>
 #include <stdint.h>
 #include <endian.h>
@@ -27,7 +27,9 @@ typedef struct test {
 
 int test_size(const test const * b)
 {
-    return 3 + (b->f2_len * 4);
+    int size = 3;
+    size += (b->f2_len * 4);
+    return size;
 }
 int test_pack(const test const *src, char *tgt)
 {
@@ -87,12 +89,12 @@ testRSEQ1a:
     }
     uint16_t f2_len = be16toh(*( (( uint16_t *) (buff + used)) - 1));
 testRSEQ1b:
-    if (used + f2_len > buff_len) {
+    if (used + (f2_len * 4) > buff_len) {
         grow_buff(&buff, &buff_len);
         goto testRSEQ1b;
     } else {
-        if (f2_len && fread(buff + used, f2_len, 1, f) != 1) return false;
-        used += f2_len;
+        if ((f2_len * 4) && fread(buff + used, (f2_len * 4), 1, f) != 1) return false;
+        used += (f2_len * 4);
     }
     int ret = test_unpack_new(tgt, buff);
     free(buff);

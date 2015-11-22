@@ -1,5 +1,5 @@
-#ifndef BYTE_BLOCKS__WMGXRHQLNHBMPOZXROOK
-#define BYTE_BLOCKS__WMGXRHQLNHBMPOZXROOK
+#ifndef BYTE_BLOCKS__OZQYMBKQJVOBXIHQSQYE
+#define BYTE_BLOCKS__OZQYMBKQJVOBXIHQSQYE
 #include <string.h>
 #include <stdint.h>
 #include <endian.h>
@@ -29,7 +29,8 @@ typedef struct test {
 
 int test_size(const test const * b)
 {
-    return 16;
+    int size = 16;
+    return size;
 }
 int test_pack(const test const *src, char *tgt)
 {

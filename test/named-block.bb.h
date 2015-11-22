@@ -1,5 +1,5 @@
-#ifndef BYTE_BLOCKS__GEEADJXYIBNZFNMLIRUU
-#define BYTE_BLOCKS__GEEADJXYIBNZFNMLIRUU
+#ifndef BYTE_BLOCKS__JFOMBAMPAXJDNSPTBIOH
+#define BYTE_BLOCKS__JFOMBAMPAXJDNSPTBIOH
 #include <string.h>
 #include <stdint.h>
 #include <endian.h>
@@ -26,7 +26,8 @@ typedef struct inner {
 
 int inner_size(const inner const * b)
 {
-    return 9;
+    int size = 9;
+    return size;
 }
 int inner_pack(const inner const *src, char *tgt)
 {
@@ -74,7 +75,8 @@ typedef struct outer {
 
 int outer_size(const outer const * b)
 {
-    return 15;
+    int size = 15;
+    return size;
 }
 int outer_pack(const outer const *src, char *tgt)
 {
