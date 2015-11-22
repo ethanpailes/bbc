@@ -58,6 +58,7 @@ genBlock gamma b = unlines $ map (\genFun -> genFun gamma b) genFuns
                 , \_ _ -> "\n"
                 , genWrite
                 , genRead
+                , genFree
                 , \_ _ -> "\n\n"]
 
 
@@ -130,7 +131,7 @@ b2 = Block "test2"
 
 
 genWrite :: Env Block -> Block -> String
-genWrite gamma (Block n es) =
+genWrite gamma blk@(Block n es) =
      "int " ++ n ++ "_write(const " ++ n ++ " *src, FILE *f)\n"
   ++ "{\n"
   ++ case blkSize of
@@ -141,7 +142,8 @@ genWrite gamma (Block n es) =
   ++ "    if(!"  ++ n ++ "_pack(src, buff)) return false;\n"
   ++ "    fwrite(buff, blk_size, 1, f);\n"
   ++ if isLeft blkSize then "    free(buff);\n}" else "}"
-    where blkSize = blockSize gamma (Block n es)
+    where blkSize = blockSize gamma blk
+
 
 genPack :: Env Block -> Block -> String
 genPack gamma (Block n entries) =
@@ -285,14 +287,6 @@ genUnpack gamma (Block n entries) =
                         Signed -> ""
                         Unsigned -> "u"
             endianFuncStr = endianReadFuncStr ty
-            {-
-              if i <= 8
-                 then ""
-                 else case endianness of
-                        BigEndian -> "be" ++ wordSizeStr ++ "toh"
-                        LittleEndian -> "le" ++ wordSizeStr ++ "toh"
-                        NativeEndian -> ""
-                        -}
             wordPtrStr = '(' : signStr ++ "int" ++ wordSizeStr ++ "_t*)"
          in if i `elem` [8, 16, 32, 64]
               then "    tgt->" ++ fName
@@ -325,8 +319,25 @@ genUnpack gamma (Block n entries) =
       unpackStmts [] = ""
       unpackStmts (e:es) =
         case e of
-          (Blk _) -> throw $ Exceptions.Unsupported "Nested Blocks"
+          (Blk _) -> throw $ Exceptions.Unsupported "Nested Blocks."
           field -> unpackStmt field ++ unpackStmts es
+
+
+genFree :: Env Block -> Block -> String
+genFree gamma blk@(Block bName entries) =
+  let freeStr (Blk _) = throw $ Exceptions.Unsupported "Nested Blocks."
+      freeStr (Field _ (BField {})) = Nothing
+      freeStr (Field _ (Tycon tyName)) = Nothing -- TODO lookup
+      freeStr (Field fName (TyConapp (Tycon "array") [tag, content])) =
+        Just $ "    free(tgt->" ++ fName ++ "); tgt->" ++ fName ++ " = NULL;\n"
+      freeStr (Field _ hot@(TyConapp _ _)) = 
+        throw $ Exceptions.MalformedHigherOrderType hot
+   in
+     "void " ++ bName ++ "_free(" ++ bName ++ " *tgt)\n"
+  ++ "{\n"
+  ++ concat (mapMaybe freeStr entries)
+  ++ "}"
+
 
 -- only take a BField as the type argument
 endianReadFuncStr :: Ty -> String

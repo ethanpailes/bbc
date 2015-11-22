@@ -1,5 +1,5 @@
-#ifndef BYTE_BLOCKS__FTFLSYKETVYNYXHRWOJW
-#define BYTE_BLOCKS__FTFLSYKETVYNYXHRWOJW
+#ifndef BYTE_BLOCKS__GEEADJXYIBNZFNMLIRUU
+#define BYTE_BLOCKS__GEEADJXYIBNZFNMLIRUU
 #include <string.h>
 #include <stdint.h>
 #include <endian.h>
@@ -60,6 +60,9 @@ int inner_read_new(inner *tgt, FILE *f)
     if (fread(buff, blk_size, 1, f) != 1) return false;
     return inner_unpack_new(tgt, buff);
 }
+void inner_free(inner *tgt)
+{
+}
 
 
 
@@ -106,6 +109,9 @@ int outer_read_new(outer *tgt, FILE *f)
     char buff[blk_size];
     if (fread(buff, blk_size, 1, f) != 1) return false;
     return outer_unpack_new(tgt, buff);
+}
+void outer_free(outer *tgt)
+{
 }
 
 

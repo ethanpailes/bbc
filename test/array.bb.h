@@ -1,5 +1,5 @@
-#ifndef BYTE_BLOCKS__HFBUXSVRNEHCZOUHYAPG
-#define BYTE_BLOCKS__HFBUXSVRNEHCZOUHYAPG
+#ifndef BYTE_BLOCKS__UWVPMSSKZOBYUGGVZVBL
+#define BYTE_BLOCKS__UWVPMSSKZOBYUGGVZVBL
 #include <string.h>
 #include <stdint.h>
 #include <endian.h>
@@ -97,6 +97,10 @@ testRSEQ1b:
     int ret = test_unpack_new(tgt, buff);
     free(buff);
     return ret;
+}
+void test_free(test *tgt)
+{
+    free(tgt->f2); tgt->f2 = NULL;
 }
 
 

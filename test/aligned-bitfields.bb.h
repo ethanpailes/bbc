@@ -1,5 +1,5 @@
-#ifndef BYTE_BLOCKS__RNSKIACUHRYLKNTHIBOY
-#define BYTE_BLOCKS__RNSKIACUHRYLKNTHIBOY
+#ifndef BYTE_BLOCKS__WMGXRHQLNHBMPOZXROOK
+#define BYTE_BLOCKS__WMGXRHQLNHBMPOZXROOK
 #include <string.h>
 #include <stdint.h>
 #include <endian.h>
@@ -68,6 +68,9 @@ int test_read_new(test *tgt, FILE *f)
     char buff[blk_size];
     if (fread(buff, blk_size, 1, f) != 1) return false;
     return test_unpack_new(tgt, buff);
+}
+void test_free(test *tgt)
+{
 }
 
 

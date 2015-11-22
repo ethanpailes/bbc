@@ -24,8 +24,6 @@ int main(int argc, char *argv[])
  
   fclose(f);
 
-
-
   FILE *in = fopen(TMP_FILE, "r");
 
   test t2;
@@ -37,6 +35,10 @@ int main(int argc, char *argv[])
   assert(t2.f2[1] == 18);
   assert(t2.f2[2] == 29);
   assert(t2.f2[3] == 3);
+
+  test_free(&t2);
+
+  fclose(in);
 
   execl("rm", "rm", "-f", TMP_FILE, NULL);
 
