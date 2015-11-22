@@ -126,7 +126,7 @@ b1 = Block "test1"
          Field "f2" (TyConapp (Tycon "array") [BField 16 Unsigned BigEndian,
                                                BField 32 Unsigned BigEndian])]
 b2 = Block "test2"
-        [Field "f1" (BField 16 Signed BigEndian)]
+        [Field "f1" (BField 8 Signed BigEndian)]
 
 
 genWrite :: Env Block -> Block -> String
@@ -145,7 +145,7 @@ genWrite gamma (Block n es) =
 
 genPack :: Env Block -> Block -> String
 genPack gamma (Block n entries) =
-     "int " ++ n ++ "_pack(const " ++ n ++ " *src, char *tgt)\n{\n"
+     "int " ++ n ++ "_pack(const " ++ n ++ " const *src, char *tgt)\n{\n"
   ++ "    size_t bytes_written = 0;\n"
   ++  packStmts entries
   ++ "\n    return bytes_written;\n}"
@@ -201,7 +201,7 @@ genPack gamma (Block n entries) =
 
 
 {-
- - The generated code for read has to use a growing buffer to figure out
+ - The generated code for read has to use a growing buffer to figure out how
  - to read in a given byte block.
  -}
 genRead :: Env Block -> Block -> String
@@ -230,33 +230,35 @@ genRead gamma blk@(Block blkName entries) =
       readSequenceStr ([Field fName (TyConapp (Tycon "array")
                                               [tag, content])], rSeqTag) =
                 readSequenceStr ([Field "BOGUS" tag], rSeqTag ++ "a")
-             ++ "    " ++ tagCType ++ " " ++ fName ++ "_len = *( (( "
-                                      ++ tagCType ++" *) (buff + used)) - 1);\n"
-             ++ readFixedSequence (fName ++ "_len") (rSeqTag ++ "b")
+             ++ "    " ++ tagCType ++ " " ++ fName ++ "_len = "
+                            ++ endianReadFuncStr tag ++ "(*( (( "
+                            ++ tagCType ++" *) (buff + used)) - 1));\n"
+             ++ readFixedSequence lenStr (rSeqTag ++ "b") (lenStr ++ " && ")
                 where tagCType = cTypeOf tag
+                      lenStr = fName ++ "_len"
       readSequenceStr (es, rSeqTag) =
         case blockSize gamma (Block "BOGUS" es) of
-          (Right n) -> readFixedSequence (show n) rSeqTag
+          (Right n) -> readFixedSequence (show n) rSeqTag ""
           (Left _) -> throw Exceptions.RealityBreach
-      readFixedSequence :: String -> String -> String
-      readFixedSequence len tag =  
+      readFixedSequence :: String -> String -> String -> String
+      readFixedSequence len tag readGaurd =  
            tag ++ ":\n"
         ++ "    if (used + " ++ len ++ " > buff_len) {\n"
         ++ "        grow_buff(&buff, &buff_len);\n"
         ++ "        goto " ++ tag ++ ";\n"
         ++ "    } else {\n"
-        ++ "        if (fread(buff + used, " ++ len
+        ++ "        if (" ++ readGaurd ++ "fread(buff + used, " ++ len
                         ++ ", 1, f) != 1) return false;\n"
         ++ "        used += " ++ len ++ ";\n"
         ++ "    }\n"
    in
-     "int " ++ blkName ++ "_read(" ++ blkName ++ " *tgt, FILE *f)\n"
+     "int " ++ blkName ++ "_read_new(" ++ blkName ++ " *tgt, FILE *f)\n"
   ++ "{\n"
   ++ case blockSize gamma blk of
        (Right bs) -> "    size_t blk_size = " ++ show bs ++ ";\n"
               ++ "    char buff[blk_size];\n"
               ++ "    if (fread(buff, blk_size, 1, f) != 1) return false;\n"
-              ++ "    return " ++ blkName ++ "_unpack(tgt, buff);\n}"
+              ++ "    return " ++ blkName ++ "_unpack_new(tgt, buff);\n}"
        (Left _) ->
                  "    size_t buff_len = " ++ show readInitialBufferSize ++ ";\n"
               ++ "    size_t used = 0;\n"
@@ -264,14 +266,14 @@ genRead gamma blk@(Block blkName entries) =
               ++ concatMap readSequenceStr
                     (zip (readSequences blk)
                        (map (\i -> blkName ++ "RSEQ" ++ show i) [0 .. ]))
-              ++ "    int ret = " ++ blkName ++ "_unpack(tgt, buff);\n"
+              ++ "    int ret = " ++ blkName ++ "_unpack_new(tgt, buff);\n"
               ++ "    free(buff);\n"
               ++ "    return ret;\n}"
 
 
 genUnpack :: Env Block -> Block -> String
 genUnpack gamma (Block n entries) = 
-     "int " ++ n ++ "_unpack(" ++ n ++ " *tgt, const char *src)\n{\n"
+     "int " ++ n ++ "_unpack_new(" ++ n ++ " *tgt, const char const *src)\n{\n"
   ++ "    size_t bytes_consumed = 0;\n"
   ++ unpackStmts entries
   ++ "\n    return true;\n}"
@@ -282,13 +284,15 @@ genUnpack gamma (Block n entries) =
             signStr = case s of
                         Signed -> ""
                         Unsigned -> "u"
-            endianFuncStr = 
+            endianFuncStr = endianReadFuncStr ty
+            {-
               if i <= 8
                  then ""
                  else case endianness of
                         BigEndian -> "be" ++ wordSizeStr ++ "toh"
                         LittleEndian -> "le" ++ wordSizeStr ++ "toh"
                         NativeEndian -> ""
+                        -}
             wordPtrStr = '(' : signStr ++ "int" ++ wordSizeStr ++ "_t*)"
          in if i `elem` [8, 16, 32, 64]
               then "    tgt->" ++ fName
@@ -300,7 +304,7 @@ genUnpack gamma (Block n entries) =
               else throw $ Exceptions.Unsupported "Unaligned bitfields."
 
       unpackStmt (Field fName (Tycon tyName)) =
-            "    " ++ tyName ++ "_unpack(&(tgt->"
+            "    " ++ tyName ++ "_unpack_new(&(tgt->"
                 ++ fName ++ "), (src + bytes_consumed));\n"
       unpackStmt (Field fName (TyConapp ty tys)) =
         case ty of
@@ -309,6 +313,8 @@ genUnpack gamma (Block n entries) =
                 iteratorName = fName ++ "_iter"
              in "    " ++ cTypeOf tag ++  ' ' : iteratorName ++ " = 0;\n"
              ++ unpackStmt (Field (fName ++ "_len") tag)
+             ++ "    tgt->" ++ fName ++ " = malloc(tgt->" ++ fName ++ "_len * "
+                      ++ show (fromJust (byteSizeOf gamma content)) ++ ");\n"
              ++ "    for(" ++ iteratorName ++ " = 0; "
                         ++ iteratorName ++ " < tgt->"
                         ++ fName ++ "_len; ++" ++ iteratorName ++ ") {\n"
@@ -322,6 +328,14 @@ genUnpack gamma (Block n entries) =
           (Blk _) -> throw $ Exceptions.Unsupported "Nested Blocks"
           field -> unpackStmt field ++ unpackStmts es
 
+-- only take a BField as the type argument
+endianReadFuncStr :: Ty -> String
+endianReadFuncStr (BField i _ BigEndian) =
+  if i <= 8 then "" else "be" ++ show i ++ "toh"
+endianReadFuncStr (BField i _ LittleEndian) = 
+  if i <= 8 then "" else "le" ++ show i ++ "toh"
+endianReadFuncStr (BField i _ NativeEndian) = ""
+endianReadFuncStr _ = throw Exceptions.RealityBreach
 
 -- Tries to compute the static size of the block. If the block is variable
 -- length (contains an array or list type) returns Left of the static size

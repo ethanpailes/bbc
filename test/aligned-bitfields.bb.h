@@ -1,5 +1,5 @@
-#ifndef BYTE_BLOCKS__RSLVHNKSLUIPVULPJVDE
-#define BYTE_BLOCKS__RSLVHNKSLUIPVULPJVDE
+#ifndef BYTE_BLOCKS__RNSKIACUHRYLKNTHIBOY
+#define BYTE_BLOCKS__RNSKIACUHRYLKNTHIBOY
 #include <string.h>
 #include <stdint.h>
 #include <endian.h>
@@ -31,7 +31,7 @@ int test_size(const test const * b)
 {
     return 16;
 }
-int test_pack(const test *src, char *tgt)
+int test_pack(const test const *src, char *tgt)
 {
     size_t bytes_written = 0;
     *((uint8_t*)(tgt + bytes_written)) = (src->f1); bytes_written += 1;
@@ -42,7 +42,7 @@ int test_pack(const test *src, char *tgt)
 
     return bytes_written;
 }
-int test_unpack(test *tgt, const char *src)
+int test_unpack_new(test *tgt, const char const *src)
 {
     size_t bytes_consumed = 0;
     tgt->f1 = (* ((uint8_t*)(src + bytes_consumed))); bytes_consumed += 1;
@@ -62,12 +62,12 @@ int test_write(const test *src, FILE *f)
     if(!test_pack(src, buff)) return false;
     fwrite(buff, blk_size, 1, f);
 }
-int test_read(test *tgt, FILE *f)
+int test_read_new(test *tgt, FILE *f)
 {
     size_t blk_size = 16;
     char buff[blk_size];
     if (fread(buff, blk_size, 1, f) != 1) return false;
-    return test_unpack(tgt, buff);
+    return test_unpack_new(tgt, buff);
 }
 
 

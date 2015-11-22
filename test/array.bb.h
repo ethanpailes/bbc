@@ -1,5 +1,5 @@
-#ifndef BYTE_BLOCKS__NROQNUTRQOGKFQHBBMEO
-#define BYTE_BLOCKS__NROQNUTRQOGKFQHBBMEO
+#ifndef BYTE_BLOCKS__HFBUXSVRNEHCZOUHYAPG
+#define BYTE_BLOCKS__HFBUXSVRNEHCZOUHYAPG
 #include <string.h>
 #include <stdint.h>
 #include <endian.h>
@@ -29,7 +29,7 @@ int test_size(const test const * b)
 {
     return 3 + (b->f2_len * 4);
 }
-int test_pack(const test *src, char *tgt)
+int test_pack(const test const *src, char *tgt)
 {
     size_t bytes_written = 0;
     *((uint8_t*)(tgt + bytes_written)) = (src->f1); bytes_written += 1;
@@ -41,12 +41,13 @@ int test_pack(const test *src, char *tgt)
 
     return bytes_written;
 }
-int test_unpack(test *tgt, const char *src)
+int test_unpack_new(test *tgt, const char const *src)
 {
     size_t bytes_consumed = 0;
     tgt->f1 = (* ((uint8_t*)(src + bytes_consumed))); bytes_consumed += 1;
     uint16_t f2_iter = 0;
     tgt->f2_len = be16toh(* ((uint16_t*)(src + bytes_consumed))); bytes_consumed += 2;
+    tgt->f2 = malloc(tgt->f2_len * 4);
     for(f2_iter = 0; f2_iter < tgt->f2_len; ++f2_iter) {
         tgt->f2[f2_iter] = be32toh(* ((uint32_t*)(src + bytes_consumed))); bytes_consumed += 4;
     }
@@ -63,7 +64,7 @@ int test_write(const test *src, FILE *f)
     fwrite(buff, blk_size, 1, f);
     free(buff);
 }
-int test_read(test *tgt, FILE *f)
+int test_read_new(test *tgt, FILE *f)
 {
     size_t buff_len = 1024;
     size_t used = 0;
@@ -84,16 +85,16 @@ testRSEQ1a:
         if (fread(buff + used, 2, 1, f) != 1) return false;
         used += 2;
     }
-    uint16_t f2_len = *( (( uint16_t *) (buff + used)) - 1);
+    uint16_t f2_len = be16toh(*( (( uint16_t *) (buff + used)) - 1));
 testRSEQ1b:
     if (used + f2_len > buff_len) {
         grow_buff(&buff, &buff_len);
         goto testRSEQ1b;
     } else {
-        if (fread(buff + used, f2_len, 1, f) != 1) return false;
+        if (f2_len && fread(buff + used, f2_len, 1, f) != 1) return false;
         used += f2_len;
     }
-    int ret = test_unpack(tgt, buff);
+    int ret = test_unpack_new(tgt, buff);
     free(buff);
     return ret;
 }

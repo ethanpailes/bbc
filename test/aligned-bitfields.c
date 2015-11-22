@@ -21,7 +21,7 @@ int main(int argc, char *argv[])
   FILE *in = fopen(TMP_FILE, "r");
 
   test t2;
-  test_read(&t2, in);
+  test_read_new(&t2, in);
 
   assert(t2.f1 == 34);
   assert(t2.f6 == 48);

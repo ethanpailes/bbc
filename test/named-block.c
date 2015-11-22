@@ -24,7 +24,7 @@ int main(int argc, char *argv[])
   FILE *in = fopen(TMP_FILE, "r");
 
   outer t2;
-  outer_read(&t2, in);
+  outer_read_new(&t2, in);
 
   assert(t2.fieldOne == 34);
   assert(t2.fieldTwo == 48);

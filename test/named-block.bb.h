@@ -1,5 +1,5 @@
-#ifndef BYTE_BLOCKS__VAJVHCXVHHCDZPKLOIZO
-#define BYTE_BLOCKS__VAJVHCXVHHCDZPKLOIZO
+#ifndef BYTE_BLOCKS__FTFLSYKETVYNYXHRWOJW
+#define BYTE_BLOCKS__FTFLSYKETVYNYXHRWOJW
 #include <string.h>
 #include <stdint.h>
 #include <endian.h>
@@ -28,7 +28,7 @@ int inner_size(const inner const * b)
 {
     return 9;
 }
-int inner_pack(const inner *src, char *tgt)
+int inner_pack(const inner const *src, char *tgt)
 {
     size_t bytes_written = 0;
     *((uint8_t*)(tgt + bytes_written)) = (src->fieldOne); bytes_written += 1;
@@ -36,7 +36,7 @@ int inner_pack(const inner *src, char *tgt)
 
     return bytes_written;
 }
-int inner_unpack(inner *tgt, const char *src)
+int inner_unpack_new(inner *tgt, const char const *src)
 {
     size_t bytes_consumed = 0;
     tgt->fieldOne = (* ((uint8_t*)(src + bytes_consumed))); bytes_consumed += 1;
@@ -53,12 +53,12 @@ int inner_write(const inner *src, FILE *f)
     if(!inner_pack(src, buff)) return false;
     fwrite(buff, blk_size, 1, f);
 }
-int inner_read(inner *tgt, FILE *f)
+int inner_read_new(inner *tgt, FILE *f)
 {
     size_t blk_size = 9;
     char buff[blk_size];
     if (fread(buff, blk_size, 1, f) != 1) return false;
-    return inner_unpack(tgt, buff);
+    return inner_unpack_new(tgt, buff);
 }
 
 
@@ -73,7 +73,7 @@ int outer_size(const outer const * b)
 {
     return 15;
 }
-int outer_pack(const outer *src, char *tgt)
+int outer_pack(const outer const *src, char *tgt)
 {
     size_t bytes_written = 0;
     *((int16_t*)(tgt + bytes_written)) = (src->fieldOne); bytes_written += 2;
@@ -82,12 +82,12 @@ int outer_pack(const outer *src, char *tgt)
 
     return bytes_written;
 }
-int outer_unpack(outer *tgt, const char *src)
+int outer_unpack_new(outer *tgt, const char const *src)
 {
     size_t bytes_consumed = 0;
     tgt->fieldOne = (* ((int16_t*)(src + bytes_consumed))); bytes_consumed += 2;
     tgt->fieldTwo = (* ((uint32_t*)(src + bytes_consumed))); bytes_consumed += 4;
-    inner_unpack(&(tgt->nested), (src + bytes_consumed));
+    inner_unpack_new(&(tgt->nested), (src + bytes_consumed));
 
     return true;
 }
@@ -100,12 +100,12 @@ int outer_write(const outer *src, FILE *f)
     if(!outer_pack(src, buff)) return false;
     fwrite(buff, blk_size, 1, f);
 }
-int outer_read(outer *tgt, FILE *f)
+int outer_read_new(outer *tgt, FILE *f)
 {
     size_t blk_size = 15;
     char buff[blk_size];
     if (fread(buff, blk_size, 1, f) != 1) return false;
-    return outer_unpack(tgt, buff);
+    return outer_unpack_new(tgt, buff);
 }
 
 
