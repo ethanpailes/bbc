@@ -1,5 +1,5 @@
-#ifndef BYTE_BLOCKS__HEPAQYGOLIRFTJFTHFWU
-#define BYTE_BLOCKS__HEPAQYGOLIRFTJFTHFWU
+#ifndef BYTE_BLOCKS__GPTYOXIJHGMNWEQBHSYD
+#define BYTE_BLOCKS__GPTYOXIJHGMNWEQBHSYD
 #include <string.h>
 #include <stdint.h>
 #include <endian.h>
@@ -43,7 +43,7 @@ int inner_unpack_new(inner *tgt, const char const *src)
     tgt->fieldOne = (* ((uint8_t*)(src + bytes_consumed))); bytes_consumed += 1;
     tgt->fieldTwo = be64toh(* ((uint64_t*)(src + bytes_consumed))); bytes_consumed += 8;
 
-    return true;
+    return bytes_consumed;
 }
 
 
@@ -92,9 +92,9 @@ int outer_unpack_new(outer *tgt, const char const *src)
     size_t bytes_consumed = 0;
     tgt->fieldOne = (* ((int16_t*)(src + bytes_consumed))); bytes_consumed += 2;
     tgt->fieldTwo = (* ((uint32_t*)(src + bytes_consumed))); bytes_consumed += 4;
-    inner_unpack_new(&(tgt->nested), (src + bytes_consumed));
+    bytes_consumed += inner_unpack_new(&(tgt->nested), (src + bytes_consumed));
 
-    return true;
+    return bytes_consumed;
 }
 
 

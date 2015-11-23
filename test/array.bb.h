@@ -1,5 +1,5 @@
-#ifndef BYTE_BLOCKS__DIWFPMQZBVCTTTGLTGFX
-#define BYTE_BLOCKS__DIWFPMQZBVCTTTGLTGFX
+#ifndef BYTE_BLOCKS__VOTTIPCBDOJDTHDZKUWF
+#define BYTE_BLOCKS__VOTTIPCBDOJDTHDZKUWF
 #include <string.h>
 #include <stdint.h>
 #include <endian.h>
@@ -54,7 +54,7 @@ int test_unpack_new(test *tgt, const char const *src)
         tgt->f2[f2_iter] = be32toh(* ((uint32_t*)(src + bytes_consumed))); bytes_consumed += 4;
     }
 
-    return true;
+    return bytes_consumed;
 }
 
 

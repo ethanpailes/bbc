@@ -309,7 +309,7 @@ genUnpack gamma (Block n entries) =
      "int " ++ n ++ "_unpack_new(" ++ n ++ " *tgt, const char const *src)\n{\n"
   ++ "    size_t bytes_consumed = 0;\n"
   ++ unpackStmts entries
-  ++ "\n    return true;\n}"
+  ++ "\n    return bytes_consumed;\n}"
     where
       unpackStmt (Blk _) = throw $ Exceptions.Unsupported "Nested blocks."
       unpackStmt (Field fName ty@(BField i s endianness)) =
@@ -329,7 +329,7 @@ genUnpack gamma (Block n entries) =
               else throw $ Exceptions.Unsupported "Unaligned bitfields."
 
       unpackStmt (Field fName (Tycon tyName)) =
-            "    " ++ tyName ++ "_unpack_new(&(tgt->"
+            "    bytes_consumed += " ++ tyName ++ "_unpack_new(&(tgt->"
                 ++ fName ++ "), (src + bytes_consumed));\n"
       unpackStmt (Field fName (TyConapp ty tys)) =
         case ty of

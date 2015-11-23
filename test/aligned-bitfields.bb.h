@@ -1,5 +1,5 @@
-#ifndef BYTE_BLOCKS__ABIRSEFLWARWJIFTWBYX
-#define BYTE_BLOCKS__ABIRSEFLWARWJIFTWBYX
+#ifndef BYTE_BLOCKS__KUKFFWIEJIZYXIPLKQLQ
+#define BYTE_BLOCKS__KUKFFWIEJIZYXIPLKQLQ
 #include <string.h>
 #include <stdint.h>
 #include <endian.h>
@@ -52,7 +52,7 @@ int test_unpack_new(test *tgt, const char const *src)
     tgt->f4 = be64toh(* ((int64_t*)(src + bytes_consumed))); bytes_consumed += 8;
     tgt->f6 = le16toh(* ((uint16_t*)(src + bytes_consumed))); bytes_consumed += 2;
 
-    return true;
+    return bytes_consumed;
 }
 
 

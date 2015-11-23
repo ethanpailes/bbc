@@ -1,5 +1,5 @@
-#ifndef BYTE_BLOCKS__FVKCKEEXJPNGKZFYQEMI
-#define BYTE_BLOCKS__FVKCKEEXJPNGKZFYQEMI
+#ifndef BYTE_BLOCKS__WUYOSLVKCXSIPTHVSWEW
+#define BYTE_BLOCKS__WUYOSLVKCXSIPTHVSWEW
 #include <string.h>
 #include <stdint.h>
 #include <endian.h>
@@ -57,7 +57,7 @@ int inner_unpack_new(inner *tgt, const char const *src)
         tgt->f3[f3_iter] = le64toh(* ((int64_t*)(src + bytes_consumed))); bytes_consumed += 8;
     }
 
-    return true;
+    return bytes_consumed;
 }
 
 
@@ -145,10 +145,10 @@ int outer_unpack_new(outer *tgt, const char const *src)
     tgt->f2_len = be16toh(* ((uint16_t*)(src + bytes_consumed))); bytes_consumed += 2;
     tgt->f2 = malloc(tgt->f2_len * sizeof(inner));
     for(f2_iter = 0; f2_iter < tgt->f2_len; ++f2_iter) {
-        inner_unpack_new(&(tgt->f2[f2_iter]), (src + bytes_consumed));
+        bytes_consumed += inner_unpack_new(&(tgt->f2[f2_iter]), (src + bytes_consumed));
     }
 
-    return true;
+    return bytes_consumed;
 }
 
 

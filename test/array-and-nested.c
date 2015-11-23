@@ -21,11 +21,11 @@ int main(int argc, char *argv[])
   i1.f3 = arr1;
 
   inner i2;
-  i2.f1 = -89;
-  i2.f2 = 99;
-  int64_t arr2[] = {9,5,4,100};
+  i2.f1 = -48;
+  i2.f2 = 23;
+  int64_t arr2[] = {9,5,-14,100};
   i2.f3_len = 4;
-  i2.f3 = arr1;
+  i2.f3 = arr2;
 
 
   outer o;
@@ -46,11 +46,23 @@ int main(int argc, char *argv[])
   outer t;
   outer_read_new(&t, in);
 
-  /*
   assert(t.f1 == 9);
   assert(t.f2_len == 2);
   assert(t.f2[0].f1 == -89);
-  */
+  assert(t.f2[0].f2 == 99);
+  assert(t.f2[0].f3_len == 4);
+  assert(t.f2[0].f3[0] == 4);
+  assert(t.f2[0].f3[1] == 18);
+  assert(t.f2[0].f3[2] == 29);
+  assert(t.f2[0].f3[3] == 3);
+
+  assert(t.f2[1].f1 == -48);
+  assert(t.f2[1].f2 == 23);
+  assert(t.f2[1].f3_len == 4);
+  assert(t.f2[1].f3[0] == 9);
+  assert(t.f2[1].f3[1] == 5);
+  assert(t.f2[1].f3[2] == -14);
+  assert(t.f2[1].f3[3] == 100);
 
   outer_free(&t);
 
