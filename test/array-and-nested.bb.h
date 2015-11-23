@@ -1,5 +1,5 @@
-#ifndef BYTE_BLOCKS__PMSTLWSQNHMDAAVLGOGF
-#define BYTE_BLOCKS__PMSTLWSQNHMDAAVLGOGF
+#ifndef BYTE_BLOCKS__FVKCKEEXJPNGKZFYQEMI
+#define BYTE_BLOCKS__FVKCKEEXJPNGKZFYQEMI
 #include <string.h>
 #include <stdint.h>
 #include <endian.h>
@@ -99,7 +99,6 @@ innerRSEQ1b:
         if ((f3_len * 8) && fread(buff + used, (f3_len * 8), 1, f) != 1) return false;
         used += (f3_len * 8);
     }
-    printf("used=%d\n", used);
     int ret = inner_unpack_new(tgt, buff);
     free(buff);
     return ret;
@@ -185,7 +184,31 @@ outerRSEQ1a:
     uint16_t f2_len = be16toh(*( (( uint16_t *) (buff + used)) - 1));
     uint16_t f2_iter = 0;
     for(f2_iter = 0; f2_iter < f2_len; ++f2_iter) {
-        inner_read_new(tgt->f2 + f2_iter, f);
+    outerRSEQ1inner0:
+        if (used + 12 > buff_len) {
+            grow_buff(&buff, &buff_len);
+            goto outerRSEQ1inner0;
+        } else {
+            if (fread(buff + used, 12, 1, f) != 1) return false;
+            used += 12;
+        }
+    outerRSEQ1inner1a:
+        if (used + 4 > buff_len) {
+            grow_buff(&buff, &buff_len);
+            goto outerRSEQ1inner1a;
+        } else {
+            if (fread(buff + used, 4, 1, f) != 1) return false;
+            used += 4;
+        }
+        uint32_t f3_len = be32toh(*( (( uint32_t *) (buff + used)) - 1));
+    outerRSEQ1inner1b:
+        if (used + (f3_len * 8) > buff_len) {
+            grow_buff(&buff, &buff_len);
+            goto outerRSEQ1inner1b;
+        } else {
+            if ((f3_len * 8) && fread(buff + used, (f3_len * 8), 1, f) != 1) return false;
+            used += (f3_len * 8);
+        }
     }
     int ret = outer_unpack_new(tgt, buff);
     free(buff);

@@ -1,5 +1,5 @@
-#ifndef BYTE_BLOCKS__JFOMBAMPAXJDNSPTBIOH
-#define BYTE_BLOCKS__JFOMBAMPAXJDNSPTBIOH
+#ifndef BYTE_BLOCKS__HEPAQYGOLIRFTJFTHFWU
+#define BYTE_BLOCKS__HEPAQYGOLIRFTJFTHFWU
 #include <string.h>
 #include <stdint.h>
 #include <endian.h>

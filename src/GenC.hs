@@ -245,24 +245,29 @@ genRead gamma blk@(Block blkName entries) =
       readSequenceStr ([], _) = throw Exceptions.RealityBreach
       readSequenceStr ([Field fName (TyConapp (Tycon "array")
                                               [tag, content])], rSeqTag) =
-                readSequenceStr ([Field "BOGUS" tag], rSeqTag ++ "a")
-             ++ "    " ++ cTypeOf tag ++ " " ++ fName ++ "_len = "
+        let lenStr = fName ++ "_len"
+         in readSequenceStr ([Field "BOGUS" tag], rSeqTag ++ "a")
+             ++ "    " ++ cTypeOf tag ++ " " ++ lenStr ++ " = "
                             ++ endianReadFuncStr tag ++ "(*( (( "
                             ++ cTypeOf tag ++" *) (buff + used)) - 1));\n"
              ++ (case byteSizeOf gamma content of
                   (Just n) ->
-                    readFixedSequence lenStr (rSeqTag ++ "b") (lenStr ++ " && ")
-                        where lenStr = '(' : fName ++ "_len"
-                                            ++ " * " ++ show n ++ ")"
+                    readFixedSequence len (rSeqTag ++ "b") (len ++ " && ")
+                        where len = '(' : lenStr ++ " * " ++ show n ++ ")"
                   Nothing ->
                        "    " ++ cTypeOf tag ++ ' ' : iter ++ " = 0;\n"
                     ++ "    for(" ++ iter ++ " = 0; " ++ iter
-                             ++ " < " ++ fName ++ "_len; ++" ++ iter ++ ") {\n"
-                    ++ "        " ++ tyName ++ "_read_new(tgt->"
-                                  ++ fName ++ " + " ++ iter ++ ", f);" ++ "\n"
+                             ++ " < " ++ lenStr ++ "; ++" ++ iter ++ ") {\n"
+                    ++ unlines -- when Haskell turns into lisp
+                        (map ("    " ++)
+                          (lines (concatMap readSequenceStr
+                            (zip (readSequences childBlock)
+                              (map (\i -> rSeqTag ++ tyName ++ show i)
+                                [0 .. ])))))
                     ++ "    }\n"
                         where iter = fName ++ "_iter"
-                              (Tycon tyName) = content)
+                              (Tycon tyName) = content
+                              childBlock = fromJust (tyName `M.lookup` gamma))
 
       readSequenceStr (es, rSeqTag) =
         case blockSize gamma (Block "BOGUS" es) of
