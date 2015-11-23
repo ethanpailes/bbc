@@ -4,14 +4,10 @@
 module Main where
 import System.Environment
 import Text.ParserCombinators.Parsec
-import System.IO
 import System.Console.GetOpt
-import Control.Monad
 import Control.Exception
-import Data.Maybe
 import Data.Either
 
-import qualified Ast
 import qualified Parse
 import qualified GenC
 import qualified TypeCheck
@@ -68,7 +64,7 @@ startOptions = Options { optTest = False
 main :: IO ()
 main = do
   args <- getArgs
-  let (actions, inputFiles, errors) = getOpt RequireOrder options args
+  let (actions, inputFiles, _ {- errors -}) = getOpt RequireOrder options args
   opts <- foldl (>>=) (return startOptions) actions
   runCompiler opts inputFiles
 
@@ -95,8 +91,8 @@ runCompiler opts files =
       in
         if test
         then let testsPass = foldl
-                        (\flag test -> -- TODO has to be a cleaner way
-                            flag >>= \f -> test >>= \t -> return (t && f))
+                        (\flag tst -> -- TODO has to be a cleaner way
+                            flag >>= \f -> tst >>= \t -> return (t && f))
                         (return True) tests
               in testsPass >>= \ok ->
                           putStrLn (if ok then "[ PASSED ]" else "[ FAIL ]")

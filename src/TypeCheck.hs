@@ -7,6 +7,7 @@ import Control.Exception
 
 type Env = Map String
 
+gammaInit :: Env Block
 gammaInit = empty
 
 typeCheck :: [Block] -> Env Block -> Env Block

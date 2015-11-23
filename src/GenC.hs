@@ -48,7 +48,9 @@ gen gamma bs =
           where headerGaurd = "BYTE_BLOCKS__" ++
                     take 20 (randomRs ('A','Z') $ unsafePerformIO newStdGen)
 
-genBlock :: Env Block -> Block -> String
+type GenFunc = Env Block -> Block -> String
+
+genBlock :: GenFunc
 genBlock gamma b = unlines $ map (\genFun -> genFun gamma b) genFuns
     where
       genFuns = [ genStructure
@@ -63,26 +65,25 @@ genBlock gamma b = unlines $ map (\genFun -> genFun gamma b) genFuns
 
 
 
-genStructure :: Env Block -> Block -> String
-genStructure gamma (Block n es) =
+genStructure :: GenFunc
+genStructure _ (Block n es) =
   "typedef struct " ++ n ++ " {\n"
     ++ concatMap fieldStr es
     ++ "} " ++ n ++ ";\n"
     where
       cFieldDecl cType fName = "    " ++ cType ++ (' ' : fName) ++ ";\n"
 
-      fieldStr (Blk b) = throw $ Exceptions.Unsupported "Nested blocks."
+      fieldStr (Blk _) = throw $ Exceptions.Unsupported "Nested blocks."
       fieldStr (Field name ty) =
         case ty of
-          (BField i s e) ->
-            let sign = if s == Signed then "" else "u"
-            in if i `elem` [8, 16, 32, 64]
+          (BField i _ _) ->
+             if i `elem` [8, 16, 32, 64]
                then cFieldDecl (cTypeOf ty) name
                else throw $ Exceptions.Unsupported "Unaligned bitfields."
           -- based on the fact that previously defined structs will already
           -- have been defined in the output file, we can safely use them
           -- as C types.
-          (Tycon n) -> cFieldDecl n name
+          (Tycon tyName) -> cFieldDecl tyName name
           (TyConapp t tys) ->
             case t of
               (Tycon "array") ->
@@ -91,7 +92,11 @@ genStructure gamma (Block n es) =
                  ++ case content of
                       (BField {}) -> cFieldDecl (cTypeOf content ++ " *") name
                       (Tycon tyName) -> "    " ++tyName++ " * " ++ name ++ ";\n"
+                      (TyConapp {}) -> throw $ Exceptions.Unsupported
+                                                    "Nested higher order types."
+              _ -> throw Exceptions.TypeError
 
+genSize :: GenFunc
 genSize gamma blk@(Block blkName entries) =
      "int " ++ blkName ++ "_size(const " ++ blkName ++ " const * b)\n"
   ++ "{\n"
@@ -131,6 +136,7 @@ genSize gamma blk@(Block blkName entries) =
 
 
 -- Some blocks it is nice to have lying around for REPL testing
+{-
 b2 = Block "test2"
         [Field "f1" (BField 32 Signed BigEndian),
          Field "f2" (TyConapp (Tycon "array") [BField 16 Unsigned LittleEndian,
@@ -143,9 +149,10 @@ b1 = Block "test1"
          Field "f2" (TyConapp (Tycon "array") [BField 16 Unsigned BigEndian,
                                                Tycon "test2"])]
 gamma' = M.insert "test2" b2 TypeCheck.gammaInit
+-}
 
-genWrite :: Env Block -> Block -> String
-genWrite gamma blk@(Block n es) =
+genWrite :: GenFunc
+genWrite gamma blk@(Block n _) =
      "int " ++ n ++ "_write(const " ++ n ++ " *src, FILE *f)\n"
   ++ "{\n"
   ++ case blkSize of
@@ -159,7 +166,7 @@ genWrite gamma blk@(Block n es) =
     where blkSize = blockSize gamma blk
 
 
-genPack :: Env Block -> Block -> String
+genPack :: GenFunc
 genPack gamma (Block n entries) =
      "int " ++ n ++ "_pack(const " ++ n ++ " const *src, char *tgt)\n{\n"
   ++ "    size_t bytes_written = 0;\n"
@@ -192,7 +199,7 @@ genPack gamma (Block n entries) =
       packStmt (Field fName (Tycon tyName)) =
                "    bytes_written += " ++ tyName ++ "_pack(&(src->"
             ++ fName ++ "), (tgt + bytes_written));\n"
-      packStmt (Field fName tca@(TyConapp ty tys)) =
+      packStmt (Field fName (TyConapp ty tys)) =
             case ty of
               (Tycon "array") ->
                   let [tag, content] = tys
@@ -220,11 +227,11 @@ genPack gamma (Block n entries) =
  - The generated code for read has to use a growing buffer to figure out how
  - to read in a given byte block.
  -}
-genRead :: Env Block -> Block -> String
-genRead gamma blk@(Block blkName entries) = 
+genRead :: GenFunc
+genRead gamma blk@(Block blkName _) = 
   let -- breaks entries up into chunks that we can read all at once
       readSequences :: Block -> [[Entry]]
-      readSequences blk =
+      readSequences block =
         let
           rs :: Block -> [[Entry]] -> [Entry] -> [[Entry]]
           rs (Block _ []) finished acc = reverse acc : finished
@@ -235,12 +242,12 @@ genRead gamma blk@(Block blkName entries) =
               (Field _ (Tycon tyName)) ->
                   let (Block _ blkEntries) = fromJust (tyName `M.lookup` gamma)
                    in readSequences (Block "BOGUS" (blkEntries ++ es ))
-              (Field _ (TyConapp ty tys)) ->
+              (Field _ (TyConapp ty _)) ->
                 case ty of
                   (Tycon "array") ->
                     rs (Block bName es) ((reverse acc : finished) ++ [[e]]) []
                   _ -> throw Exceptions.TypeError
-         in filter (/= []) $ rs blk [[]] []
+         in filter (/= []) $ rs block [[]] []
       readSequenceStr :: ([Entry], String) -> String
       readSequenceStr ([], _) = throw Exceptions.RealityBreach
       readSequenceStr ([Field fName (TyConapp (Tycon "array")
@@ -263,7 +270,7 @@ genRead gamma blk@(Block blkName entries) =
                           (lines (concatMap readSequenceStr
                             (zip (readSequences childBlock)
                               (map (\i -> rSeqTag ++ tyName ++ show i)
-                                [0 .. ])))))
+                                [(0 :: Integer) .. ])))))
                     ++ "    }\n"
                         where iter = fName ++ "_iter"
                               (Tycon tyName) = content
@@ -298,13 +305,14 @@ genRead gamma blk@(Block blkName entries) =
               ++ "    char *buff = malloc(buff_len);\n"
               ++ concatMap readSequenceStr
                     (zip (readSequences blk)
-                       (map (\i -> blkName ++ "RSEQ" ++ show i) [0 .. ]))
+                       (map (\i -> blkName ++ "RSEQ" ++ show i)
+                            [(0 :: Integer) .. ]))
               ++ "    int ret = " ++ blkName ++ "_unpack_new(tgt, buff);\n"
               ++ "    free(buff);\n"
               ++ "    return ret;\n}"
 
 
-genUnpack :: Env Block -> Block -> String
+genUnpack :: GenFunc
 genUnpack gamma (Block n entries) = 
      "int " ++ n ++ "_unpack_new(" ++ n ++ " *tgt, const char const *src)\n{\n"
   ++ "    size_t bytes_consumed = 0;\n"
@@ -312,7 +320,7 @@ genUnpack gamma (Block n entries) =
   ++ "\n    return bytes_consumed;\n}"
     where
       unpackStmt (Blk _) = throw $ Exceptions.Unsupported "Nested blocks."
-      unpackStmt (Field fName ty@(BField i s endianness)) =
+      unpackStmt (Field fName ty@(BField i s _)) =
         let wordSizeStr = show i
             signStr = case s of
                         Signed -> ""
@@ -362,8 +370,8 @@ genUnpack gamma (Block n entries) =
           field -> unpackStmt field ++ unpackStmts es
 
 
-genFree :: Env Block -> Block -> String
-genFree gamma blk@(Block bName entries) =
+genFree :: GenFunc
+genFree _ (Block bName entries) =
   let freeStr (Blk _) = throw $ Exceptions.Unsupported "Nested Blocks."
       freeStr (Field _ (BField {})) = Nothing
       freeStr (Field _ (Tycon tyName)) = Nothing -- TODO lookup
@@ -396,7 +404,7 @@ endianReadFuncStr (BField i _ BigEndian) =
   if i <= 8 then "" else "be" ++ show i ++ "toh"
 endianReadFuncStr (BField i _ LittleEndian) = 
   if i <= 8 then "" else "le" ++ show i ++ "toh"
-endianReadFuncStr (BField i _ NativeEndian) = ""
+endianReadFuncStr (BField _ _ NativeEndian) = ""
 endianReadFuncStr _ = throw Exceptions.RealityBreach
 
 -- Tries to compute the static size of the block. If the block is variable
@@ -410,7 +418,7 @@ blockSize gamma (Block _ entries) =
             else throw $ Exceptions.Unsupported "Unaligned bitfields."
       sizeOfType (Field _ (Tycon tyName)) =
             blockSize gamma (fromJust (tyName `M.lookup` gamma))
-      sizeOfType (Field _ tca@(TyConapp t tys)) =
+      sizeOfType (Field _ (TyConapp t tys)) =
             case t of
               (Tycon "array") ->
                 let [tag, _] = tys

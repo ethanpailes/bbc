@@ -6,7 +6,6 @@ module Parse where
 import Ast
 import Test.QuickCheck
 import Text.ParserCombinators.Parsec
-import Control.Monad
 import Data.Char
 
 -- Utility funciton to run a parser and satisfy the given function
@@ -66,11 +65,13 @@ parseBlock = do
     _ <- spaces >> string "end"
     return $ Block n entries
 
+parseEntry :: Parser Entry
 parseEntry = do
   entry <- try parseField <|> (parseBlock >>= \b -> return (Blk b))
   _ <- many justSpace >> newline
   return entry
 
+parseField :: Parser Entry
 parseField = do
   n <- parseName
   _ <- spaces >> char ':' >> spaces

@@ -1,7 +1,7 @@
 module Ast where
 import Test.QuickCheck
 import Control.Monad
-import Data.List
+--import Data.List
 import Data.List.Utils
 import Data.Char
 
