@@ -1,6 +1,6 @@
 name:                bbc
 version:             0.1.0.0
-synopsis:            Simple project template from stack
+synopsis:            Data description langauge
 description:         Please see README.md
 homepage:            http://github.com/ethanpailes/bbc#readme
 license:             BSD3
@@ -8,7 +8,7 @@ license-file:        LICENSE
 author:              Ethan Pailes
 maintainer:          Ethan.Pailes@tufts.edu
 copyright:           Ethan Pailes
-category:            Web
+category:            Language
 build-type:          Simple
 cabal-version:       >=1.10
 
@@ -16,6 +16,12 @@ executable bbc
   hs-source-dirs:      src
   main-is:             Main.hs
   default-language:    Haskell2010
+  other-modules:
+        Ast
+      , Exceptions
+      , GenC
+      , Parse
+      , TypeCheck
   build-depends:
         base >= 4.7 && < 5
       , QuickCheck
