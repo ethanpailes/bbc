@@ -12,7 +12,7 @@ gammaInit = empty
 
 typeCheck :: [Block] -> Env Block -> Env Block
 typeCheck [] gamma = gamma
-typeCheck (Block _ [] : bs) gamma = gamma -- throw out empty blocks
+typeCheck (Block _ [] : _) gamma = gamma -- throw out empty blocks
 typeCheck (Block blockName entries : bs) gamma =
   typeCheck bs gamma'
     where

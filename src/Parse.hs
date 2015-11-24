@@ -90,7 +90,7 @@ prop_ParseDoubleLevelBlock :: Block -> Block -> Bool
 prop_ParseDoubleLevelBlock (Block n (e:es)) inner =
   runParserFresh parseBlock (pretty c) (== c)
     where c = Block n (e : Blk inner : es)
-prop_ParseDoubleLevelBlock (Block n []) inner = -- just test the inner
+prop_ParseDoubleLevelBlock (Block _ []) inner = -- just test the inner
   runParserFresh parseBlock (pretty inner) (== inner)
 
 
