@@ -374,7 +374,8 @@ genFree :: GenFunc
 genFree _ (Block bName entries) =
   let freeStr (Blk _) = throw $ Exceptions.Unsupported "Nested Blocks."
       freeStr (Field _ (BField {})) = Nothing
-      freeStr (Field _ (Tycon tyName)) = Nothing -- TODO lookup
+      freeStr (Field fName (Tycon tyName)) = 
+        Just $ "    " ++ tyName ++ "_free(&(tgt->" ++ fName ++ "));\n"
       freeStr (Field fName (TyConapp (Tycon "array") [tag, content])) =
         Just 
           ((case content of

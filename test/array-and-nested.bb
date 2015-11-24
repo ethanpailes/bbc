@@ -9,3 +9,4 @@ block outer
   f1 : 8u
   f2 : array 16ub inner
 end
+

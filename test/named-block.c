@@ -31,6 +31,8 @@ int main(int argc, char *argv[])
   assert(t.nested.fieldOne == 44);
   assert(t.nested.fieldTwo == 9324);
 
+  fclose(in);
+
   execl("rm", "rm", "-f", TMP_FILE, NULL);
 
   return 0;

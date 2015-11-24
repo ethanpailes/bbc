@@ -1,5 +1,5 @@
-#ifndef BYTE_BLOCKS__IGUIXFRLGGIYOYKMYEZY
-#define BYTE_BLOCKS__IGUIXFRLGGIYOYKMYEZY
+#ifndef BYTE_BLOCKS__HOKJLTEQWQBYFEYWFVZX
+#define BYTE_BLOCKS__HOKJLTEQWQBYFEYWFVZX
 #include <string.h>
 #include <stdint.h>
 #include <endian.h>
@@ -114,6 +114,7 @@ int outer_read_new(outer *tgt, FILE *f)
 }
 void outer_free(outer *tgt)
 {
+    inner_free(&(tgt->nested));
 }
 
 
