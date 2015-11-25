@@ -38,4 +38,5 @@ typeCheck (Block blockName entries : bs) gamma =
                    _ -> tc es
               (Tycon tcon) -> throw $ UnknownTypeConstructor tcon
               _ -> throw $ MalformedHigherOrderType "TypeCheck - unknown:" tca
+          (Field _ (SumTy {})) -> throw $ Exceptions.Unsupported "Sum Types."
 

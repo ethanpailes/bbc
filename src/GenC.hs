@@ -94,7 +94,9 @@ genStructure _ (Block n es) =
                       (Tycon tyName) -> "    " ++tyName++ " * " ++ name ++ ";\n"
                       (TyConapp {}) -> throw $ Exceptions.Unsupported
                                                     "Nested higher order types."
+                      (SumTy {}) -> throw $ Exceptions.Unsupported "Sum types."
               _ -> throw Exceptions.TypeError
+          (SumTy _ _) -> throw $ Exceptions.Unsupported "Sum types."
 
 genSize :: GenFunc
 genSize gamma blk@(Block blkName entries) =
@@ -133,6 +135,8 @@ genSize gamma blk@(Block blkName entries) =
                             ++ "    }\n"
                           _ -> throw Exceptions.TypeError
               _ -> throw $ Exceptions.MalformedHigherOrderType "genSize:" hot
+          dynamicSizeOf (Field _ (SumTy {})) =
+            throw $ Exceptions.Unsupported "Sum Types"
 
 
 -- Some blocks it is nice to have lying around for REPL testing
@@ -215,6 +219,8 @@ genPack gamma (Block n entries) =
                                          content)
                    ++ "    }\n"
               _ -> throw Exceptions.TypeError
+      packStmt (Field _ (SumTy {})) =
+        throw $ Exceptions.Unsupported "Sum types."
 
       packStmts [] = ""
       packStmts (e:es) =
@@ -247,7 +253,9 @@ genRead gamma blk@(Block blkName _) =
                   (Tycon "array") ->
                     rs (Block bName es) ((reverse acc : finished) ++ [[e]]) []
                   _ -> throw Exceptions.TypeError
-         in filter (/= []) $ rs block [[]] []
+              (Field _ (SumTy {})) ->
+                throw $ Exceptions.Unsupported "Sum types."
+           in filter (/= []) $ rs block [[]] []
       readSequenceStr :: ([Entry], String) -> String
       readSequenceStr ([], _) = throw Exceptions.RealityBreach
       readSequenceStr ([Field fName (TyConapp (Tycon "array")
@@ -363,6 +371,9 @@ genUnpack gamma (Block n entries) =
                       (Field (fName ++ '[' : iteratorName ++ "]") content)
              ++ "    }\n"
           _ -> throw Exceptions.TypeError
+      unpackStmt (Field _ (SumTy {})) =
+        throw $ Exceptions.Unsupported "Sum Types."
+
       unpackStmts [] = ""
       unpackStmts (e:es) =
         case e of
@@ -388,10 +399,13 @@ genFree _ (Block bName entries) =
                               ++ fName ++ " + " ++ iter ++ ");\n"
               ++ "    }\n"
               where iter = fName ++ "_iter"
-            (TyConapp {}) -> throw Exceptions.TypeError)
+            (TyConapp {}) -> throw Exceptions.TypeError
+            (SumTy {}) -> throw $ Exceptions.Unsupported "Sum Types.")
           ++ "    free(tgt->" ++ fName ++ "); tgt->" ++ fName ++ " = NULL;\n")
       freeStr (Field _ hot@(TyConapp _ _)) = 
         throw $ Exceptions.MalformedHigherOrderType "genFree:" hot
+      freeStr (Field _ (SumTy {})) =
+        throw $ Exceptions.Unsupported "Sum Types."
    in
      "void " ++ bName ++ "_free(" ++ bName ++ " *tgt)\n"
   ++ "{\n"
@@ -427,6 +441,8 @@ blockSize gamma (Block _ entries) =
                       (Right x) -> Left x
                       (Left _) -> throw Exceptions.RealityBreach -- not possible
               _               -> throw Exceptions.TypeError
+      sizeOfType (Field _ (SumTy {})) =
+        throw $ Exceptions.Unsupported "Sum Types."
       sizeOfType (Blk _) = throw $ Exceptions.Unsupported "Nested blocks."
       
       acc (Right a) (Right x) = Right (a + x)
@@ -446,6 +462,7 @@ byteSizeOf gamma (Tycon tyName) =
           typeOf (Blk _) = throw $ Exceptions.Unsupported "Nested blocks."
           typeOf (Field _ ty) = ty
 byteSizeOf _     (TyConapp _ _) = Nothing
+byteSizeOf _ (SumTy {}) = throw $ Exceptions.Unsupported "Sum Types."
 
 -- only works on bfields, helper function to compute the ctype of a given bfield
 cTypeOf :: Ty -> String

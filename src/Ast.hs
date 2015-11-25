@@ -1,7 +1,7 @@
 module Ast where
 import Test.QuickCheck
 import Control.Monad
---import Data.List
+import Data.List
 import Data.List.Utils
 import Data.Char
 
@@ -9,7 +9,7 @@ class Pretty a where
   pretty :: a -> String 
 type Name = String
 data Sign = Signed | Unsigned
-  deriving( Eq, Show )
+  deriving( Eq, Ord, Show )
 
 instance Pretty Sign where
   pretty Signed = "s"
@@ -19,7 +19,7 @@ instance Arbitrary Sign where
     arbitrary = elements [Signed, Unsigned]
 
 data Endianness = BigEndian | LittleEndian | NativeEndian
-  deriving( Eq, Show )
+  deriving( Eq, Ord, Show )
 
 instance Pretty Endianness where
   pretty BigEndian = "b"
@@ -33,15 +33,33 @@ instance Arbitrary Endianness where
 data Ty = BField Int Sign Endianness
         | Tycon Name
         | TyConapp Ty [Ty]
-      deriving( Eq, Show )
+        | SumTy Ty [Ty]
+      deriving( Eq, Ord, Show )
+
+isSumTy :: Ty -> Bool
+isSumTy (SumTy {}) = True
+isSumTy _ = False
+
+isBField :: Ty -> Bool
+isBField (BField {}) = True
+isBField _ = False
 
 instance Pretty Ty where
   pretty (BField len s e) = show len ++ pretty s ++ pretty e
   pretty (Tycon n) = n
   pretty (TyConapp ty tys) = pretty ty ++ (' ' : unwords (map pretty tys))
+  pretty (SumTy tag options) = "tag " ++ pretty tag ++ " foropts { " 
+                                  ++ intercalate "\n | " (map pretty options)
+                                  ++ "\n }"
+{-
+tag = BField 16 Unsigned BigEndian
+opt1 = BField 8 Unsigned BigEndian
+opt2 = BField 32 Signed NativeEndian
+s = SumTy tag [opt1, opt2]
+-}
 
 instance Arbitrary Ty where
-  arbitrary = oneof [aTycon, aBFeild, aTyConapp]
+  arbitrary = oneof [aTycon, aBFeild, aTyConapp, aSumTy]
     where
       aBFeild = do
         len <- suchThat arbitrary (> 0)
@@ -54,9 +72,14 @@ instance Arbitrary Ty where
         ty <- aTycon
         tys <- suchThat (listOf aTycon) (not . null)
         return $ TyConapp ty tys
+      aSumTy = do
+        tag <- aBFeild
+        opts <- listOf1 $ oneof [aBFeild, aTycon]
+        return $ SumTy tag opts
+
 
 data Entry = Blk Block | Field Name Ty
-  deriving( Eq, Show )
+  deriving( Eq, Ord, Show )
 
 instance Pretty Entry where
   pretty (Blk b) = replace "\n" "\n    " (pretty b) -- handle nesting
@@ -70,7 +93,7 @@ instance Arbitrary Entry where
         return $ Field n ty
 
 data Block = Block Name [Entry]
-  deriving( Eq, Show )
+  deriving( Eq, Ord, Show )
 
 instance Pretty Block where
   pretty (Block n es) = "block " ++ n ++ "\n"

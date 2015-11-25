@@ -1,5 +1,5 @@
-#ifndef BYTE_BLOCKS__HOKJLTEQWQBYFEYWFVZX
-#define BYTE_BLOCKS__HOKJLTEQWQBYFEYWFVZX
+#ifndef BYTE_BLOCKS__LTVLNPNABRMEGJEYEOGR
+#define BYTE_BLOCKS__LTVLNPNABRMEGJEYEOGR
 #include <string.h>
 #include <stdint.h>
 #include <endian.h>

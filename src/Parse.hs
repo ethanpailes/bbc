@@ -16,7 +16,7 @@ runParserFresh p input sat =
     Left _ -> False
 
 reserved :: [String]
-reserved = ["end", "block"]
+reserved = ["end", "block", "tag", "foropts"]
 
 -- |Whitespaces that is not a newline
 justSpace :: Parser Char
@@ -35,7 +35,7 @@ parseName = do
           else return n
 
 parseTy :: Parser Ty
-parseTy = parseBField <|> try parseTyConapp <|> parseTycon
+parseTy = parseBField <|> try parseTyConapp <|> try parseTycon <|> parseSumTy
   where
     parseTyConapp = do
       ty <- parseTycon
@@ -52,6 +52,28 @@ parseTy = parseBField <|> try parseTyConapp <|> parseTycon
                   'l' -> LittleEndian
                   _ -> NativeEndian)
     parseTycon = parseName >>= \n -> return $ Tycon n
+
+    parseSingleLineSumTy = do
+      _ <- string "tag"
+      tag <- justSpaces >> (parseBField <|> parseTycon)
+      _ <- justSpaces >> string "foropts"
+      opt <- justSpaces >> parseTy
+      opts <- many (justSpaces >> char '|' >> justSpaces >> parseTy)
+      return $ SumTy tag (opt:opts)
+
+    parseMultiLineSumTy = do
+      _ <- string "tag"
+      tag <- justSpaces >> (parseBField <|> parseTycon)
+      _ <- justSpaces >> string "foropts"
+      _ <- justSpaces >> char '{'
+      opt <- spaces >> parseTy
+      opts <- many (try (spaces >> char '|' >> spaces >> parseTy))
+      _ <- spaces >> char '}'
+      return $ SumTy tag (opt:opts)
+
+    parseSumTy = try parseSingleLineSumTy <|> parseMultiLineSumTy
+
+
 
 prop_ParseTyParsesArbitraryType :: Ty -> Bool
 prop_ParseTyParsesArbitraryType t =
