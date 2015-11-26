@@ -33,7 +33,7 @@ instance Arbitrary Endianness where
 data Ty = BField Int Sign Endianness
         | Tycon Name
         | TyConapp Ty [Ty]
-        | SumTy Ty [Ty]
+        | SumTy Ty [(Ty, Integer)]
       deriving( Eq, Ord, Show )
 
 isSumTy :: Ty -> Bool
@@ -48,9 +48,11 @@ instance Pretty Ty where
   pretty (BField len s e) = show len ++ pretty s ++ pretty e
   pretty (Tycon n) = n
   pretty (TyConapp ty tys) = pretty ty ++ (' ' : unwords (map pretty tys))
-  pretty (SumTy tag options) = "tag " ++ pretty tag ++ " foropts { " 
-                                  ++ intercalate "\n | " (map pretty options)
-                                  ++ "\n }"
+  pretty (SumTy tag options) =
+    let prettyOpts (ty, code) = pretty ty ++ " = " ++ show code
+     in "tag " ++ pretty tag ++ " foropts { " 
+          ++ intercalate "\n | " (map prettyOpts options)
+          ++ "\n }"
 {-
 tag = BField 16 Unsigned BigEndian
 opt1 = BField 8 Unsigned BigEndian
@@ -75,7 +77,7 @@ instance Arbitrary Ty where
       aSumTy = do
         tag <- aBFeild
         opts <- listOf1 $ oneof [aBFeild, aTycon]
-        return $ SumTy tag opts
+        return $ SumTy tag (zip opts [0..])
 
 
 data Entry = Blk Block | Field Name Ty

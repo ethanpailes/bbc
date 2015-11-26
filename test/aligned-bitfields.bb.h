@@ -1,5 +1,5 @@
-#ifndef BYTE_BLOCKS__CTWNVJNZUNJCSHMFXFMH
-#define BYTE_BLOCKS__CTWNVJNZUNJCSHMFXFMH
+#ifndef BYTE_BLOCKS__CKXAVAASWVKQYRUXAMRH
+#define BYTE_BLOCKS__CKXAVAASWVKQYRUXAMRH
 #include <string.h>
 #include <stdint.h>
 #include <endian.h>
@@ -9,6 +9,8 @@
 #define true 1
 #define false 0
 
+#ifndef __BYTE_BLOCKS_UTILS__
+#define __BYTE_BLOCKS_UTILS__
 int grow_buff(char ** buff, size_t * len)
 {
     size_t old_len = *len;
@@ -19,6 +21,7 @@ int grow_buff(char ** buff, size_t * len)
     free(tmp);
     return true;
 }
+#endif // __BYTE_BLOCKS_UTILS__
 typedef struct test {
     uint8_t f1;
     uint8_t f2;

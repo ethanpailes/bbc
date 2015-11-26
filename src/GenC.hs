@@ -33,6 +33,8 @@ gen gamma bs =
       ++ "#include <stdio.h>\n\n"
       ++ "#define true 1\n"
       ++ "#define false 0\n\n"
+      ++ "#ifndef __BYTE_BLOCKS_UTILS__\n"
+      ++ "#define __BYTE_BLOCKS_UTILS__\n"
       ++ "int grow_buff(char ** buff, size_t * len)\n"
       ++ "{\n"
       ++ "    size_t old_len = *len;\n"
@@ -43,6 +45,7 @@ gen gamma bs =
       ++ "    free(tmp);\n"
       ++ "    return true;\n"
       ++ "}\n"
+      ++ "#endif // __BYTE_BLOCKS_UTILS__\n"
       ++ concatMap (genBlock gamma) bs
       ++ "\n#endif\n"
           where headerGaurd = "BYTE_BLOCKS__" ++
@@ -96,7 +99,19 @@ genStructure _ (Block n es) =
                                                     "Nested higher order types."
                       (SumTy {}) -> throw $ Exceptions.Unsupported "Sum types."
               _ -> throw Exceptions.TypeError
-          (SumTy _ _) -> throw $ Exceptions.Unsupported "Sum types."
+          (SumTy tag opts) -> 
+            fieldStr (Field (name ++ "_tag") tag)
+            ++ "    union {\n"
+            ++ concatMap (("    " ++) . unionFields) opts
+            ++ "    } " ++ name ++ ";\n"
+              where
+                unionFields (ty@(BField {}), n) =
+                  fieldStr (Field (name ++ "_" ++ show n) ty)
+                unionFields (ty@(Tycon tyName), _) = 
+                  fieldStr (Field (name ++ "_" ++ tyName) ty)
+                unionFields _ = throw Exceptions.TypeError
+
+
 
 genSize :: GenFunc
 genSize gamma blk@(Block blkName entries) =
@@ -135,7 +150,7 @@ genSize gamma blk@(Block blkName entries) =
                             ++ "    }\n"
                           _ -> throw Exceptions.TypeError
               _ -> throw $ Exceptions.MalformedHigherOrderType "genSize:" hot
-          dynamicSizeOf (Field _ (SumTy {})) =
+          dynamicSizeOf (Field fName (SumTy tag opts)) =
             throw $ Exceptions.Unsupported "Sum Types"
 
 
@@ -145,15 +160,17 @@ b2 = Block "test2"
         [Field "f1" (BField 32 Signed BigEndian),
          Field "f2" (TyConapp (Tycon "array") [BField 16 Unsigned LittleEndian,
                                                BField 32 Signed BigEndian])]
-b3 = Block "test3"
-        [Field "f1" (BField 32 Signed BigEndian)]
+--gamma' = M.insert "test2" b2 TypeCheck.gammaInit
+-}
 
 b1 = Block "test1"
         [Field "f1" (BField 16 Signed BigEndian),
-         Field "f2" (TyConapp (Tycon "array") [BField 16 Unsigned BigEndian,
-                                               Tycon "test2"])]
-gamma' = M.insert "test2" b2 TypeCheck.gammaInit
--}
+         Field "f2" (SumTy (BField 16 Unsigned BigEndian)
+                              [(BField 16 Unsigned BigEndian, 0), 
+                               (BField 64 Signed LittleEndian, 1)])]
+
+t1 = SumTy (BField 1 Signed BigEndian) [(BField 3 Signed BigEndian,0)]
+
 
 genWrite :: GenFunc
 genWrite gamma blk@(Block n _) =
@@ -423,7 +440,7 @@ endianReadFuncStr (BField _ _ NativeEndian) = ""
 endianReadFuncStr _ = throw Exceptions.RealityBreach
 
 -- Tries to compute the static size of the block. If the block is variable
--- length (contains an array or list type) returns Left of the static size
+-- length (contains an array or sum type) returns Left of the static size
 -- of the block.
 blockSize :: Env Block -> Block -> Either Int Int
 blockSize gamma (Block _ entries) =
@@ -441,8 +458,10 @@ blockSize gamma (Block _ entries) =
                       (Right x) -> Left x
                       (Left _) -> throw Exceptions.RealityBreach -- not possible
               _               -> throw Exceptions.TypeError
-      sizeOfType (Field _ (SumTy {})) =
-        throw $ Exceptions.Unsupported "Sum Types."
+      sizeOfType (Field _ (SumTy tag opts)) =
+          case sizeOfType (Field "" tag) of
+            (Right x) -> Left x
+            (Left _) -> throw Exceptions.RealityBreach
       sizeOfType (Blk _) = throw $ Exceptions.Unsupported "Nested blocks."
       
       acc (Right a) (Right x) = Right (a + x)

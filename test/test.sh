@@ -40,4 +40,6 @@ if [ ${DIFF_EXIT_STAT} != 0 ] ; then
   exit 1
 fi
 
+rm -f ${TMP_OUT_FILE}
+
 echo "[ OK ]"

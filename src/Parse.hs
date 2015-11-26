@@ -15,6 +15,12 @@ runParserFresh p input sat =
     Right res -> sat res
     Left _ -> False
 
+decimal :: Parser Integer
+decimal = do
+    digits <- many1 digit
+    let n = foldl (\x d -> 10*x + toInteger (digitToInt d)) 0 digits
+    seq n (return n)
+
 reserved :: [String]
 reserved = ["end", "block", "tag", "foropts"]
 
@@ -37,6 +43,10 @@ parseName = do
 parseTy :: Parser Ty
 parseTy = parseBField <|> try parseTyConapp <|> try parseTycon <|> parseSumTy
   where
+    parseOpt spaceParser =
+      spaceParser >> parseTy >>= \t -> 
+        spaceParser >> char '=' >> spaceParser >> decimal >>= \i ->
+          return (t, i)
     parseTyConapp = do
       ty <- parseTycon
       tys <- many1 (try (justSpaces >> (parseBField <|> parseTycon)))
@@ -57,8 +67,8 @@ parseTy = parseBField <|> try parseTyConapp <|> try parseTycon <|> parseSumTy
       _ <- string "tag"
       tag <- justSpaces >> (parseBField <|> parseTycon)
       _ <- justSpaces >> string "foropts"
-      opt <- justSpaces >> parseTy
-      opts <- many (justSpaces >> char '|' >> justSpaces >> parseTy)
+      opt <- parseOpt justSpaces
+      opts <- many (justSpaces >> char '|' >> parseOpt justSpaces)
       return $ SumTy tag (opt:opts)
 
     parseMultiLineSumTy = do
@@ -66,14 +76,15 @@ parseTy = parseBField <|> try parseTyConapp <|> try parseTycon <|> parseSumTy
       tag <- justSpaces >> (parseBField <|> parseTycon)
       _ <- justSpaces >> string "foropts"
       _ <- justSpaces >> char '{'
-      opt <- spaces >> parseTy
-      opts <- many (try (spaces >> char '|' >> spaces >> parseTy))
+      opt <- parseOpt spaces
+      opts <- many (try (spaces >> char '|' >> parseOpt spaces))
       _ <- spaces >> char '}'
       return $ SumTy tag (opt:opts)
 
     parseSumTy = try parseSingleLineSumTy <|> parseMultiLineSumTy
 
 
+t1 = SumTy (BField 1 Signed BigEndian) [(BField 3 Signed BigEndian,0)]
 
 prop_ParseTyParsesArbitraryType :: Ty -> Bool
 prop_ParseTyParsesArbitraryType t =

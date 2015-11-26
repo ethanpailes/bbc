@@ -1,4 +1,3 @@
-
 block inner
   f1 : 32sl
   f2 : 64ub
@@ -9,4 +8,3 @@ block outer
   f1 : 8u
   f2 : array 16ub inner
 end
-
