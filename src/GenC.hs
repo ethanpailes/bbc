@@ -125,6 +125,15 @@ genSize gamma blk@(Block blkName entries) =
           staticSize = case blkSize of
                          (Right s) -> s
                          (Left s) -> s
+          sizeCase fName (ty, num) =
+            "    case " ++ show num ++ ":\n"
+            ++ case ty of
+                 (BField {}) -> 
+                   "      size += "
+                        ++ show (fromJust (byteSizeOf gamma ty)) ++ ";\n"
+                 (Tycon {}) -> "  " ++ dynamicSizeOf (Field fName ty)
+                 _ -> throw Exceptions.TypeError
+
           dynamicSizeOf (Blk _) = throw $ Exceptions.Unsupported "Nested blocks"
           dynamicSizeOf (Field _ (BField {})) = ""
           dynamicSizeOf (Field fName (Tycon tyName)) = 
@@ -151,7 +160,9 @@ genSize gamma blk@(Block blkName entries) =
                           _ -> throw Exceptions.TypeError
               _ -> throw $ Exceptions.MalformedHigherOrderType "genSize:" hot
           dynamicSizeOf (Field fName (SumTy tag opts)) =
-            throw $ Exceptions.Unsupported "Sum Types"
+               "    switch (" ++ fName ++ ") {\n"
+            ++ concatMap (sizeCase fName) opts
+            ++ "    }\n"
 
 
 -- Some blocks it is nice to have lying around for REPL testing
@@ -161,15 +172,14 @@ b2 = Block "test2"
          Field "f2" (TyConapp (Tycon "array") [BField 16 Unsigned LittleEndian,
                                                BField 32 Signed BigEndian])]
 --gamma' = M.insert "test2" b2 TypeCheck.gammaInit
--}
 
+-}
 b1 = Block "test1"
         [Field "f1" (BField 16 Signed BigEndian),
          Field "f2" (SumTy (BField 16 Unsigned BigEndian)
                               [(BField 16 Unsigned BigEndian, 0), 
+                               ((Tycon "bae"), 2),
                                (BField 64 Signed LittleEndian, 1)])]
-
-t1 = SumTy (BField 1 Signed BigEndian) [(BField 3 Signed BigEndian,0)]
 
 
 genWrite :: GenFunc
