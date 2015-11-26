@@ -1,5 +1,5 @@
-#ifndef BYTE_BLOCKS__GWODJSFASRXOJUFCBTNV
-#define BYTE_BLOCKS__GWODJSFASRXOJUFCBTNV
+#ifndef BYTE_BLOCKS__OMKMADLPWLPJMHRRCRQQ
+#define BYTE_BLOCKS__OMKMADLPWLPJMHRRCRQQ
 #include <string.h>
 #include <stdint.h>
 #include <endian.h>
@@ -66,11 +66,13 @@ int inner_unpack_new(inner *tgt, const char const *src)
 
 int inner_write(const inner *src, FILE *f)
 {
+    int ret;
     size_t blk_size = inner_size(src);
     char * buff = (char*) malloc(blk_size);
     if(!inner_pack(src, buff)) return false;
-    fwrite(buff, blk_size, 1, f);
+    ret = fwrite(buff, blk_size, 1, f);
     free(buff);
+    return ret;
 }
 int inner_read_new(inner *tgt, FILE *f)
 {
@@ -157,11 +159,13 @@ int outer_unpack_new(outer *tgt, const char const *src)
 
 int outer_write(const outer *src, FILE *f)
 {
+    int ret;
     size_t blk_size = outer_size(src);
     char * buff = (char*) malloc(blk_size);
     if(!outer_pack(src, buff)) return false;
-    fwrite(buff, blk_size, 1, f);
+    ret = fwrite(buff, blk_size, 1, f);
     free(buff);
+    return ret;
 }
 int outer_read_new(outer *tgt, FILE *f)
 {

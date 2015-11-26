@@ -186,15 +186,18 @@ genWrite :: GenFunc
 genWrite gamma blk@(Block n _) =
      "int " ++ n ++ "_write(const " ++ n ++ " *src, FILE *f)\n"
   ++ "{\n"
+  ++ "    int ret;\n"
   ++ case blkSize of
        (Right bs) -> "    size_t blk_size = " ++ show bs ++ ";\n"
                  ++ "    char buff[" ++ show bs ++ "];\n"
        (Left _) -> "    size_t blk_size = " ++ n ++ "_size(src);\n"
                ++ "    char * buff = (char*) malloc(blk_size);\n"
   ++ "    if(!"  ++ n ++ "_pack(src, buff)) return false;\n"
-  ++ "    fwrite(buff, blk_size, 1, f);\n"
-  ++ if isLeft blkSize then "    free(buff);\n}" else "}"
+  ++ "    ret = fwrite(buff, blk_size, 1, f);\n"
+  ++ freeStr
+  ++ "    return ret;\n}"
     where blkSize = blockSize gamma blk
+          freeStr = if isLeft blkSize then "    free(buff);\n" else ""
 
 
 genPack :: GenFunc

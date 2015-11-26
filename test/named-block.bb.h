@@ -1,5 +1,5 @@
-#ifndef BYTE_BLOCKS__JSMWFQGZMGKQYJUSTPBS
-#define BYTE_BLOCKS__JSMWFQGZMGKQYJUSTPBS
+#ifndef BYTE_BLOCKS__DEFWGASSVPNZFHRVOOAQ
+#define BYTE_BLOCKS__DEFWGASSVPNZFHRVOOAQ
 #include <string.h>
 #include <stdint.h>
 #include <endian.h>
@@ -52,10 +52,12 @@ int inner_unpack_new(inner *tgt, const char const *src)
 
 int inner_write(const inner *src, FILE *f)
 {
+    int ret;
     size_t blk_size = 9;
     char buff[9];
     if(!inner_pack(src, buff)) return false;
-    fwrite(buff, blk_size, 1, f);
+    ret = fwrite(buff, blk_size, 1, f);
+    return ret;
 }
 int inner_read_new(inner *tgt, FILE *f)
 {
@@ -103,10 +105,12 @@ int outer_unpack_new(outer *tgt, const char const *src)
 
 int outer_write(const outer *src, FILE *f)
 {
+    int ret;
     size_t blk_size = 15;
     char buff[15];
     if(!outer_pack(src, buff)) return false;
-    fwrite(buff, blk_size, 1, f);
+    ret = fwrite(buff, blk_size, 1, f);
+    return ret;
 }
 int outer_read_new(outer *tgt, FILE *f)
 {

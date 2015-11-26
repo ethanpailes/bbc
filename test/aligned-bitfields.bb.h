@@ -1,5 +1,5 @@
-#ifndef BYTE_BLOCKS__CKXAVAASWVKQYRUXAMRH
-#define BYTE_BLOCKS__CKXAVAASWVKQYRUXAMRH
+#ifndef BYTE_BLOCKS__TRCBXJRFBWTZQEBBKFFD
+#define BYTE_BLOCKS__TRCBXJRFBWTZQEBBKFFD
 #include <string.h>
 #include <stdint.h>
 #include <endian.h>
@@ -61,10 +61,12 @@ int test_unpack_new(test *tgt, const char const *src)
 
 int test_write(const test *src, FILE *f)
 {
+    int ret;
     size_t blk_size = 16;
     char buff[16];
     if(!test_pack(src, buff)) return false;
-    fwrite(buff, blk_size, 1, f);
+    ret = fwrite(buff, blk_size, 1, f);
+    return ret;
 }
 int test_read_new(test *tgt, FILE *f)
 {
