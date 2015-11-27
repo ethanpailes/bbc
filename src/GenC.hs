@@ -7,6 +7,7 @@ import Ast
 import qualified Exceptions
 import qualified Data.Map as M
 import Control.Exception
+import Data.String.Utils
 import Control.Monad
 import TypeCheck
 import Data.Maybe
@@ -179,14 +180,14 @@ b1 = Block "test1"
         [Field "f1" (BField 16 Signed BigEndian),
          Field "f2" (SumTy (BField 16 Unsigned BigEndian)
                               [(BField 16 Unsigned BigEndian, 0), 
-                               ((Tycon "test2"), 2),
+                               (Tycon "test2", 2),
                                (BField 64 Signed LittleEndian, 1)])]
 
 b3 = Block "test1"
         [Field "f1" (BField 16 Signed BigEndian),
          Field "f2" (TyConapp (Tycon "array")
                               [BField 16 Unsigned NativeEndian,
-                               (Tycon "test2")])]
+                               Tycon "test2"])]
 
 genWrite :: GenFunc
 genWrite gamma blk@(Block n _) =
@@ -264,7 +265,6 @@ genPack gamma (Block n entries) =
            "    switch (src->" ++ fName ++ "_tag) {\n"
         ++ concatMap caseEntry opts
         ++ "    }\n" 
-        --throw $ Exceptions.Unsupported "Sum types."
 
       packStmts [] = ""
       packStmts (e:es) =
@@ -346,7 +346,6 @@ genRead gamma blk@(Block blkName _) =
          ++ readField (fName ++ "_tag") tag
          ++ "    switch (" ++ fName ++ "_tag) {\n"
          ++ unlines (map ("    " ++) (lines (concatMap caseStmt opts)))
-           --concatMap (("      " ++) . caseStmt) opts
          ++ "    }\n"
       readSequenceStr (es, rSeqTag) =
         case blockSize gamma (Block "BOGUS" es) of
@@ -435,8 +434,16 @@ genUnpack gamma (Block n entries) =
                       (Field (fName ++ '[' : iteratorName ++ "]") content)
              ++ "    }\n"
           _ -> throw Exceptions.TypeError
-      unpackStmt (Field _ (SumTy {})) =
-        throw $ Exceptions.Unsupported "Sum Types."
+      unpackStmt (Field fName (SumTy tag opts)) =
+        let caseStmt (ty, num) =
+              ["case " ++ show num ++ ":"
+               , rstrip (unpackStmt (Field fName ty))
+               , "    break;"
+               ]
+         in unpackStmt (Field (fName ++ "_tag") tag)
+         ++ "    switch (tgt->" ++ fName ++ "_tag) {\n"
+         ++ unlines (concatMap (map ("    " ++) . caseStmt) opts)
+         ++ "    }"
 
       unpackStmts [] = ""
       unpackStmts (e:es) =
@@ -447,7 +454,8 @@ genUnpack gamma (Block n entries) =
 
 genFree :: GenFunc
 genFree _ (Block bName entries) =
-  let freeStr (Blk _) = throw $ Exceptions.Unsupported "Nested Blocks."
+  let justs xs = foldr (\(s,n) a -> if s == Nothing then a else (fromJust s,n):a) [] xs
+      freeStr (Blk _) = throw $ Exceptions.Unsupported "Nested Blocks."
       freeStr (Field _ (BField {})) = Nothing
       freeStr (Field fName (Tycon tyName)) = 
         Just $ "    " ++ tyName ++ "_free(&(tgt->" ++ fName ++ "));\n"
@@ -468,8 +476,21 @@ genFree _ (Block bName entries) =
           ++ "    free(tgt->" ++ fName ++ "); tgt->" ++ fName ++ " = NULL;\n")
       freeStr (Field _ hot@(TyConapp _ _)) = 
         throw $ Exceptions.MalformedHigherOrderType "genFree:" hot
-      freeStr (Field _ (SumTy {})) =
-        throw $ Exceptions.Unsupported "Sum Types."
+      freeStr (Field fName (SumTy tag opts)) =
+        let caseStmt (str, num) =
+              [ "case " ++ show num ++ ":"
+              , rstrip str
+              , "    break;"]
+            optStrs =
+              justs $ map (\(ty, n) -> (freeStr (Field fName ty), n)) opts
+         in if optStrs == []
+               then Nothing
+               else Just ("    switch (tgt->" ++ fName ++ "_tag) {\n"
+                         ++ unlines (concatMap (map ("    " ++) . caseStmt) optStrs)
+                         ++ "    default:\n"
+                         ++ "        break;\n"
+                         ++ "    }\n")
+        
    in
      "void " ++ bName ++ "_free(" ++ bName ++ " *tgt)\n"
   ++ "{\n"
