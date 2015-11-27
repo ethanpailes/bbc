@@ -14,7 +14,7 @@ data CompilerException = Unsupported String
                        | TypeError
                        | UnknownTypeConstructor Name
                        | MalformedHigherOrderType String Ty
-                       | RealityBreach
+                       | RealityBreach String
                        | NonUniqueSumTags Ty
   deriving( Typeable )
 
@@ -25,8 +25,8 @@ instance Show CompilerException where
   show (UnknownTypeConstructor n) = "Unknown Type Constructor " ++ n
   show (MalformedHigherOrderType s ty) =
     s ++ " Malformed Higher Order Type: " ++ pretty ty
-  show RealityBreach =
-    "Reality Breached. Please report this bug to <ethanpailes@gmail.com>"
+  show (RealityBreach s) =
+    "Reality Breached from " ++ s ++ ". Please report this bug to <ethanpailes@gmail.com>"
   show (NonUniqueSumTags ty) = "Non Unique Sum Tags for type" ++ pretty ty
 
 instance Exception CompilerException

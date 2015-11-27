@@ -1,5 +1,6 @@
 
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE FlexibleContexts #-}
 
 module GenC where
 import Ast
@@ -10,6 +11,7 @@ import Control.Monad
 import TypeCheck
 import Data.Maybe
 import Data.Either
+import Exceptions
 
 -- for random string generation
 import System.Random
@@ -127,12 +129,13 @@ genSize gamma blk@(Block blkName entries) =
                          (Left s) -> s
           sizeCase fName (ty, num) =
             "    case " ++ show num ++ ":\n"
-            ++ case ty of
+            ++ (case ty of
                  (BField {}) -> 
                    "      size += "
                         ++ show (fromJust (byteSizeOf gamma ty)) ++ ";\n"
                  (Tycon {}) -> "  " ++ dynamicSizeOf (Field fName ty)
-                 _ -> throw Exceptions.TypeError
+                 _ -> throw Exceptions.TypeError)
+            ++ "      break;\n"
 
           dynamicSizeOf (Blk _) = throw $ Exceptions.Unsupported "Nested blocks"
           dynamicSizeOf (Field _ (BField {})) = ""
@@ -160,27 +163,30 @@ genSize gamma blk@(Block blkName entries) =
                           _ -> throw Exceptions.TypeError
               _ -> throw $ Exceptions.MalformedHigherOrderType "genSize:" hot
           dynamicSizeOf (Field fName (SumTy tag opts)) =
-               "    switch (" ++ fName ++ ") {\n"
+               "    switch (b->" ++ fName ++ "_tag) {\n"
             ++ concatMap (sizeCase fName) opts
             ++ "    }\n"
 
 
 -- Some blocks it is nice to have lying around for REPL testing
-{-
 b2 = Block "test2"
         [Field "f1" (BField 32 Signed BigEndian),
          Field "f2" (TyConapp (Tycon "array") [BField 16 Unsigned LittleEndian,
                                                BField 32 Signed BigEndian])]
---gamma' = M.insert "test2" b2 TypeCheck.gammaInit
+gamma' = M.insert "test2" b2 TypeCheck.gammaInit
 
--}
 b1 = Block "test1"
         [Field "f1" (BField 16 Signed BigEndian),
          Field "f2" (SumTy (BField 16 Unsigned BigEndian)
                               [(BField 16 Unsigned BigEndian, 0), 
-                               ((Tycon "bae"), 2),
+                               ((Tycon "test2"), 2),
                                (BField 64 Signed LittleEndian, 1)])]
 
+b3 = Block "test1"
+        [Field "f1" (BField 16 Signed BigEndian),
+         Field "f2" (TyConapp (Tycon "array")
+                              [BField 16 Unsigned NativeEndian,
+                               (Tycon "test2")])]
 
 genWrite :: GenFunc
 genWrite gamma blk@(Block n _) =
@@ -249,8 +255,16 @@ genPack gamma (Block n entries) =
                                          content)
                    ++ "    }\n"
               _ -> throw Exceptions.TypeError
-      packStmt (Field _ (SumTy {})) =
-        throw $ Exceptions.Unsupported "Sum types."
+      packStmt (Field fName (SumTy _ opts)) =
+        let caseEntry (ty, num) =
+                   "    case " ++ show num ++ ":\n"
+                ++ "  " ++ packStmt (Field fName ty)
+                ++ "      break;\n"
+         in
+           "    switch (src->" ++ fName ++ "_tag) {\n"
+        ++ concatMap caseEntry opts
+        ++ "    }\n" 
+        --throw $ Exceptions.Unsupported "Sum types."
 
       packStmts [] = ""
       packStmts (e:es) =
@@ -266,6 +280,10 @@ genPack gamma (Block n entries) =
 genRead :: GenFunc
 genRead gamma blk@(Block blkName _) = 
   let -- breaks entries up into chunks that we can read all at once
+      readField fName fType = 
+            "    " ++ cTypeOf fType ++ " " ++ fName ++ " = "
+         ++ endianReadFuncStr fType ++ "(*( (( "
+         ++ cTypeOf fType ++" *) (buff + used)) - 1));\n"
       readSequences :: Block -> [[Entry]]
       readSequences block =
         let
@@ -284,40 +302,57 @@ genRead gamma blk@(Block blkName _) =
                     rs (Block bName es) ((reverse acc : finished) ++ [[e]]) []
                   _ -> throw Exceptions.TypeError
               (Field _ (SumTy {})) ->
-                throw $ Exceptions.Unsupported "Sum types."
+                rs (Block bName es) ((reverse acc : finished) ++ [[e]]) []
            in filter (/= []) $ rs block [[]] []
+
+      readVarLenTypeStr (Tycon tyName) rSeqTag =
+        let childBlock = fromJust (tyName `M.lookup` gamma)
+         in unlines -- when Haskell turns into lisp
+             (map ("    " ++)
+               (lines (concatMap readSequenceStr
+                 (zip (readSequences childBlock)
+                   (map (\i -> rSeqTag ++ tyName ++ show i)
+                     [(0 :: Integer) .. ])))))
+
       readSequenceStr :: ([Entry], String) -> String
-      readSequenceStr ([], _) = throw Exceptions.RealityBreach
+      readSequenceStr ([], _) =
+        throw $ RealityBreach "genRead: readSequenceStr, empty read seq: "
       readSequenceStr ([Field fName (TyConapp (Tycon "array")
                                               [tag, content])], rSeqTag) =
         let lenStr = fName ++ "_len"
-         in readSequenceStr ([Field "BOGUS" tag], rSeqTag ++ "a")
-             ++ "    " ++ cTypeOf tag ++ " " ++ lenStr ++ " = "
-                            ++ endianReadFuncStr tag ++ "(*( (( "
-                            ++ cTypeOf tag ++" *) (buff + used)) - 1));\n"
+         in readSequenceStr ([Field "ARRAY-BOGUS" tag], rSeqTag ++ "a")
+             ++ readField lenStr tag
              ++ (case byteSizeOf gamma content of
                   (Just n) ->
                     readFixedSequence len (rSeqTag ++ "b") (len ++ " && ")
                         where len = '(' : lenStr ++ " * " ++ show n ++ ")"
                   Nothing ->
-                       "    " ++ cTypeOf tag ++ ' ' : iter ++ " = 0;\n"
+                       "    " ++ cTypeOf tag ++ ' ' : iter ++ ";\n"
                     ++ "    for(" ++ iter ++ " = 0; " ++ iter
                              ++ " < " ++ lenStr ++ "; ++" ++ iter ++ ") {\n"
-                    ++ unlines -- when Haskell turns into lisp
-                        (map ("    " ++)
-                          (lines (concatMap readSequenceStr
-                            (zip (readSequences childBlock)
-                              (map (\i -> rSeqTag ++ tyName ++ show i)
-                                [(0 :: Integer) .. ])))))
+                    ++ readVarLenTypeStr content rSeqTag
                     ++ "    }\n"
                         where iter = fName ++ "_iter"
                               (Tycon tyName) = content
                               childBlock = fromJust (tyName `M.lookup` gamma))
-
+      readSequenceStr ([Field fName (SumTy tag opts)], rSeqTag) =
+        let caseStmt (ty, num) = 
+                 "case " ++ show num ++ ":\n"
+              ++ (case byteSizeOf gamma ty of
+                   (Just n) -> readFixedSequence (show n) (rSeqTag ++ "b" ++ show num) ""
+                   Nothing -> readVarLenTypeStr ty rSeqTag )
+              ++ "    break;\n"
+         in readSequenceStr ([Field "SUMTY-BOGUS" tag], rSeqTag ++ "a")
+         ++ readField (fName ++ "_tag") tag
+         ++ "    switch (" ++ fName ++ "_tag) {\n"
+         ++ unlines (map ("    " ++) (lines (concatMap caseStmt opts)))
+           --concatMap (("      " ++) . caseStmt) opts
+         ++ "    }\n"
       readSequenceStr (es, rSeqTag) =
         case blockSize gamma (Block "BOGUS" es) of
           (Right n) -> readFixedSequence (show n) rSeqTag ""
-          (Left _) -> throw Exceptions.RealityBreach
+          (Left _) ->
+            throw (RealityBreach "genRead: readSequenceStr, field block : ")
       readFixedSequence :: String -> String -> String -> String
       readFixedSequence len tag readGaurd =  
            tag ++ ":\n"
@@ -326,11 +361,10 @@ genRead gamma blk@(Block blkName _) =
         ++ "        goto " ++ tag ++ ";\n"
         ++ "    } else {\n"
         ++ "        if (" ++ readGaurd ++ "fread(buff + used, " ++ len
-                        ++ ", 1, f) != 1) return false;\n"
+                        ++ ", 1, f) != 1) return false;\n" -- TODO goto end
         ++ "        used += " ++ len ++ ";\n"
         ++ "    }\n"
-   in
-     "int " ++ blkName ++ "_read_new(" ++ blkName ++ " *tgt, FILE *f)\n"
+   in "int " ++ blkName ++ "_read_new(" ++ blkName ++ " *tgt, FILE *f)\n"
   ++ "{\n"
   ++ case blockSize gamma blk of
        (Right bs) -> "    size_t blk_size = " ++ show bs ++ ";\n"
@@ -450,7 +484,7 @@ endianReadFuncStr (BField i _ BigEndian) =
 endianReadFuncStr (BField i _ LittleEndian) = 
   if i <= 8 then "" else "le" ++ show i ++ "toh"
 endianReadFuncStr (BField _ _ NativeEndian) = ""
-endianReadFuncStr _ = throw Exceptions.RealityBreach
+endianReadFuncStr _ = throw $ RealityBreach "endianFuncStr: "
 
 -- Tries to compute the static size of the block. If the block is variable
 -- length (contains an array or sum type) returns Left of the static size
@@ -469,12 +503,13 @@ blockSize gamma (Block _ entries) =
                 let [tag, _] = tys
                  in case sizeOfType (Field "" tag) of
                       (Right x) -> Left x
-                      (Left _) -> throw Exceptions.RealityBreach -- not possible
+                      (Left _) -> throw 
+                          (RealityBreach "blockSize: sizeOfType, array: ")
               _               -> throw Exceptions.TypeError
       sizeOfType (Field _ (SumTy tag opts)) =
           case sizeOfType (Field "" tag) of
             (Right x) -> Left x
-            (Left _) -> throw Exceptions.RealityBreach
+            (Left _) -> throw $ RealityBreach "blockSize: sizeOfType, SumTy: "
       sizeOfType (Blk _) = throw $ Exceptions.Unsupported "Nested blocks."
       
       acc (Right a) (Right x) = Right (a + x)

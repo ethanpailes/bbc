@@ -32,11 +32,9 @@ typeCheck (Block blockName entries : bs) gamma =
             case ty of
               (Tycon "array") ->
                 case tys of
-                   [TyConapp {}, _] -> throw (MalformedHigherOrderType
+                   [BField {}, _] -> tc es
+                   _ -> throw (MalformedHigherOrderType
                                                 "TypeCheck - bad array:" tca)
-                   [_, TyConapp {}] -> throw (MalformedHigherOrderType
-                                                "TypeCheck - bad array:" tca)
-                   _ -> tc es
               (Tycon tcon) -> throw $ UnknownTypeConstructor tcon
               _ -> throw $ MalformedHigherOrderType "TypeCheck - unknown:" tca
           (Field _ sty@(SumTy tag opts)) ->

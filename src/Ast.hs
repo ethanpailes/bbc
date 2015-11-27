@@ -50,9 +50,8 @@ instance Pretty Ty where
   pretty (TyConapp ty tys) = pretty ty ++ (' ' : unwords (map pretty tys))
   pretty (SumTy tag options) =
     let prettyOpts (ty, code) = pretty ty ++ " = " ++ show code
-     in "tag " ++ pretty tag ++ " foropts { " 
-          ++ intercalate "\n | " (map prettyOpts options)
-          ++ "\n }"
+     in "tag " ++ pretty tag ++ " foropts " 
+          ++ intercalate " | " (map prettyOpts options)
 {-
 tag = BField 16 Unsigned BigEndian
 opt1 = BField 8 Unsigned BigEndian

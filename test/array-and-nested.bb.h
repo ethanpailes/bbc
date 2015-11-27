@@ -1,5 +1,5 @@
-#ifndef BYTE_BLOCKS__OMKMADLPWLPJMHRRCRQQ
-#define BYTE_BLOCKS__OMKMADLPWLPJMHRRCRQQ
+#ifndef BYTE_BLOCKS__WUEDZWWPYTDTYLKYGIRD
+#define BYTE_BLOCKS__WUEDZWWPYTDTYLKYGIRD
 #include <string.h>
 #include <stdint.h>
 #include <endian.h>
@@ -189,7 +189,7 @@ outerRSEQ1a:
         used += 2;
     }
     uint16_t f2_len = be16toh(*( (( uint16_t *) (buff + used)) - 1));
-    uint16_t f2_iter = 0;
+    uint16_t f2_iter;
     for(f2_iter = 0; f2_iter < f2_len; ++f2_iter) {
     outerRSEQ1inner0:
         if (used + 12 > buff_len) {
