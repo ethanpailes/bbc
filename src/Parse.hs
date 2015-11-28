@@ -112,7 +112,7 @@ parseField = do
   return $ Field n ty
 
 parseFile :: Parser [Block]
-parseFile = many (try (spaces >> parseBlock))
+parseFile = many1 (try (spaces >> parseBlock))
 
 prop_ParseSingleLevelBlock :: Block -> Bool
 prop_ParseSingleLevelBlock b =

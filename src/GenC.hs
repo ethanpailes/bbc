@@ -259,7 +259,8 @@ genPack gamma (Block n entries) =
       packStmt (Field fName (SumTy _ opts)) =
         let caseEntry (ty, num) =
                    "    case " ++ show num ++ ":\n"
-                ++ "  " ++ packStmt (Field fName ty)
+                ++ "  " ++ packStmt
+                          (Field (fName ++ '.' : fName ++ '_' : show num) ty)
                 ++ "      break;\n"
          in
            "    switch (src->" ++ fName ++ "_tag) {\n"
@@ -437,7 +438,8 @@ genUnpack gamma (Block n entries) =
       unpackStmt (Field fName (SumTy tag opts)) =
         let caseStmt (ty, num) =
               ["case " ++ show num ++ ":"
-               , rstrip (unpackStmt (Field fName ty))
+               , rstrip (unpackStmt
+                        (Field (fName ++ '.' : fName ++ '_' : show num) ty))
                , "    break;"
                ]
          in unpackStmt (Field (fName ++ "_tag") tag)
