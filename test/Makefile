@@ -8,7 +8,8 @@ test: clean \
 			array                      array.bb.h \
 			array-and-nested           array-and-nested.bb.h \
 			large-array                array.bb.h \
-			sumty                      sumty.bb.h
+			sumty                      sumty.bb.h \
+			sumty-and-nested           sumty-and-nested.bb.h
 	./test.sh aligned-bitfields 0 ./outfiles/aligned-bitfields.out aligned-bitfields
 	./test.sh compile-unknown-block.sh 1 ./outfiles/compile-unknown-block.sh.out unknown-block
 	./test.sh named-block 0 ./outfiles/named-block.out named-block
@@ -16,6 +17,7 @@ test: clean \
 	./test.sh array-and-nested 0 ./outfiles/array-and-nested.out array-and-nested
 	./test.sh large-array 0 ./outfiles/large-array.out large-array
 	./test.sh sumty 0 ./outfiles/sumty.out sumty
+	./test.sh sumty-and-nested 0 ./outfiles/sumty-and-nested.out sumty-and-nested
 
 
 %.bb.h: %.bb

@@ -83,9 +83,6 @@ parseTy = parseBField <|> try parseTyConapp <|> try parseTycon <|> parseSumTy
 
     parseSumTy = try parseSingleLineSumTy <|> parseMultiLineSumTy
 
-
-t1 = SumTy (BField 1 Signed BigEndian) [(BField 3 Signed BigEndian,0)]
-
 prop_ParseTyParsesArbitraryType :: Ty -> Bool
 prop_ParseTyParsesArbitraryType t =
   runParserFresh parseTy (pretty t) (== t)

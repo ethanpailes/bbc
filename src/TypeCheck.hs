@@ -37,8 +37,8 @@ typeCheck (Block blockName entries : bs) gamma =
                                                 "TypeCheck - bad array:" tca)
               (Tycon tcon) -> throw $ UnknownTypeConstructor tcon
               _ -> throw $ MalformedHigherOrderType "TypeCheck - unknown:" tca
-          (Field _ sty@(SumTy tag opts)) ->
-            if any (\x -> length x /= 1) (group (sort opts))
+          (Field _ sty@(SumTy _ opts)) ->
+            if any (\x -> length x /= 1) (group (sort (map snd opts)))
                then throw $ NonUniqueSumTags sty
                else tc es
 

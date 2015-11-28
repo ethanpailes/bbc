@@ -72,10 +72,10 @@ genBlock gamma b = unlines $ map (\genFun -> genFun gamma b) genFuns
 
 
 genStructure :: GenFunc
-genStructure _ (Block n es) =
-  "typedef struct " ++ n ++ " {\n"
+genStructure _ (Block bName es) =
+  "typedef struct " ++ bName ++ " {\n"
     ++ concatMap fieldStr es
-    ++ "} " ++ n ++ ";\n"
+    ++ "} " ++ bName ++ ";\n"
     where
       cFieldDecl cType fName = "    " ++ cType ++ (' ' : fName) ++ ";\n"
 
@@ -108,9 +108,7 @@ genStructure _ (Block n es) =
             ++ concatMap (("    " ++) . unionFields) opts
             ++ "    } " ++ name ++ ";\n"
               where
-                unionFields (ty, n) =
-                  fieldStr (Field (name ++ "_" ++ show n) ty)
-                unionFields _ = throw Exceptions.TypeError
+                unionFields (t, n) = fieldStr (Field (name ++ "_" ++ show n) t)
 
 
 
@@ -165,13 +163,14 @@ genSize gamma blk@(Block blkName entries) =
                             ++ "    }\n"
                           _ -> throw Exceptions.TypeError
               _ -> throw $ Exceptions.MalformedHigherOrderType "genSize:" hot
-          dynamicSizeOf (Field fName (SumTy tag opts)) =
+          dynamicSizeOf (Field fName (SumTy _ opts)) =
                "    switch (b->" ++ fName ++ "_tag) {\n"
             ++ concatMap (sizeCase fName) opts
             ++ "    }\n"
 
 
 -- Some blocks it is nice to have lying around for REPL testing
+{-
 b2 = Block "test2"
         [Field "f1" (BField 32 Signed BigEndian),
          Field "f2" (TyConapp (Tycon "array") [BField 16 Unsigned LittleEndian,
@@ -190,6 +189,7 @@ b3 = Block "test1"
          Field "f2" (TyConapp (Tycon "array")
                               [BField 16 Unsigned NativeEndian,
                                Tycon "test2"])]
+-}
 
 genWrite :: GenFunc
 genWrite gamma blk@(Block n _) =
@@ -316,6 +316,7 @@ genRead gamma blk@(Block blkName _) =
                  (zip (readSequences childBlock)
                    (map (\i -> rSeqTag ++ tyName ++ show i)
                      [(0 :: Integer) .. ])))))
+      readVarLenTypeStr _ _ = throw $ RealityBreach "genRead: readVarLenTypeStr: "
 
       readSequenceStr :: ([Entry], String) -> String
       readSequenceStr ([], _) =
@@ -335,9 +336,7 @@ genRead gamma blk@(Block blkName _) =
                              ++ " < " ++ lenStr ++ "; ++" ++ iter ++ ") {\n"
                     ++ readVarLenTypeStr content rSeqTag
                     ++ "    }\n"
-                        where iter = fName ++ "_iter"
-                              (Tycon tyName) = content
-                              childBlock = fromJust (tyName `M.lookup` gamma))
+                        where iter = fName ++ "_iter")
       readSequenceStr ([Field fName (SumTy tag opts)], rSeqTag) =
         let caseStmt (ty, num) = 
                  "case " ++ show num ++ ":\n"
@@ -480,7 +479,7 @@ genFree _ (Block bName entries) =
           ++ "    free(tgt->" ++ fName ++ "); tgt->" ++ fName ++ " = NULL;\n")
       freeStr (Field _ hot@(TyConapp _ _)) = 
         throw $ Exceptions.MalformedHigherOrderType "genFree:" hot
-      freeStr (Field fName (SumTy tag opts)) =
+      freeStr (Field fName (SumTy _ opts)) =
         let caseStmt (str, num) =
               [ "case " ++ show num ++ ":"
               , rstrip str
@@ -535,7 +534,7 @@ blockSize gamma (Block _ entries) =
                       (Left _) -> throw 
                           (RealityBreach "blockSize: sizeOfType, array: ")
               _               -> throw Exceptions.TypeError
-      sizeOfType (Field _ (SumTy tag opts)) =
+      sizeOfType (Field _ (SumTy tag _)) =
           case sizeOfType (Field "" tag) of
             (Right x) -> Left x
             (Left _) -> throw $ RealityBreach "blockSize: sizeOfType, SumTy: "
