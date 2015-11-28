@@ -1,5 +1,5 @@
-#ifndef BYTE_BLOCKS__VHNJKHWLZZTMOHELDEIF
-#define BYTE_BLOCKS__VHNJKHWLZZTMOHELDEIF
+#ifndef BYTE_BLOCKS__TZWIFDNLQEZHUUYAJEHX
+#define BYTE_BLOCKS__TZWIFDNLQEZHUUYAJEHX
 #include <string.h>
 #include <stdint.h>
 #include <endian.h>
@@ -50,6 +50,7 @@ int test_pack(const test const *src, char *tgt)
     size_t bytes_written = 0;
     *((uint8_t*)(tgt + bytes_written)) = (src->f1); bytes_written += 1;
     *((int32_t*)(tgt + bytes_written)) = htole32(src->f2); bytes_written += 4;
+    *((uint16_t*)(tgt + bytes_written)) = htobe16(src->f3_tag); bytes_written += 2;
     switch (src->f3_tag) {
     case 0:
       *((int32_t*)(tgt + bytes_written)) = htole32(src->f3.f3_0); bytes_written += 4;

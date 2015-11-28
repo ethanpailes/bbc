@@ -256,14 +256,14 @@ genPack gamma (Block n entries) =
                                          content)
                    ++ "    }\n"
               _ -> throw Exceptions.TypeError
-      packStmt (Field fName (SumTy _ opts)) =
+      packStmt (Field fName (SumTy tag opts)) =
         let caseEntry (ty, num) =
                    "    case " ++ show num ++ ":\n"
                 ++ "  " ++ packStmt
                           (Field (fName ++ '.' : fName ++ '_' : show num) ty)
                 ++ "      break;\n"
-         in
-           "    switch (src->" ++ fName ++ "_tag) {\n"
+         in packStmt (Field (fName ++ "_tag") tag)
+        ++ "    switch (src->" ++ fName ++ "_tag) {\n"
         ++ concatMap caseEntry opts
         ++ "    }\n" 
 
