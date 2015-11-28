@@ -1,5 +1,5 @@
-#ifndef BYTE_BLOCKS__WUEDZWWPYTDTYLKYGIRD
-#define BYTE_BLOCKS__WUEDZWWPYTDTYLKYGIRD
+#ifndef BYTE_BLOCKS__AJEERHIDZUKPYPASAXBI
+#define BYTE_BLOCKS__AJEERHIDZUKPYPASAXBI
 #include <string.h>
 #include <stdint.h>
 #include <endian.h>
