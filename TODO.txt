@@ -31,7 +31,10 @@ Language Features:
   Recursive Data Types
     - Requires a change to the semantics of how blocks are introduced
         as new types.
-    - Requires case blocks, and some concept of nil for those case blocks.
+  Named sumty tags
+    - Allow user to assign text name to the tag number
+    - User still needs to specify the actual number to preserve the principle
+        that disk layout should be as clear as possible
 
 
 Optimizations & implementation clean up:
