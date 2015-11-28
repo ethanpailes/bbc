@@ -100,7 +100,7 @@ genStructure _ (Block n es) =
                       (Tycon tyName) -> "    " ++tyName++ " * " ++ name ++ ";\n"
                       (TyConapp {}) -> throw $ Exceptions.Unsupported
                                                     "Nested higher order types."
-                      (SumTy {}) -> throw $ Exceptions.Unsupported "Sum types."
+                      (SumTy {}) -> throw $ Exceptions.Unsupported "genStructure Sum types."
               _ -> throw Exceptions.TypeError
           (SumTy tag opts) -> 
             fieldStr (Field (name ++ "_tag") tag)
@@ -108,10 +108,8 @@ genStructure _ (Block n es) =
             ++ concatMap (("    " ++) . unionFields) opts
             ++ "    } " ++ name ++ ";\n"
               where
-                unionFields (ty@(BField {}), n) =
+                unionFields (ty, n) =
                   fieldStr (Field (name ++ "_" ++ show n) ty)
-                unionFields (ty@(Tycon tyName), _) = 
-                  fieldStr (Field (name ++ "_" ++ tyName) ty)
                 unionFields _ = throw Exceptions.TypeError
 
 
@@ -134,7 +132,11 @@ genSize gamma blk@(Block blkName entries) =
                  (BField {}) -> 
                    "      size += "
                         ++ show (fromJust (byteSizeOf gamma ty)) ++ ";\n"
-                 (Tycon {}) -> "  " ++ dynamicSizeOf (Field fName ty)
+                 (Tycon tyName) ->
+                   "        size += "++tyName++"_size(&(b->"++elemName++"));\n"
+                      where elemName = fName ++ '.' : fName ++ '_' : show num
+                   -- "  " ++ dynamicSizeOf
+                   --         (Field (fName ++ '.' : fName ++ '_' : show num) ty)
                  _ -> throw Exceptions.TypeError)
             ++ "      break;\n"
 
@@ -484,7 +486,11 @@ genFree _ (Block bName entries) =
               , rstrip str
               , "    break;"]
             optStrs =
-              justs $ map (\(ty, n) -> (freeStr (Field fName ty), n)) opts
+              justs $ map
+                       (\(ty, n) ->
+                         (freeStr
+                           (Field (fName ++ '.' : fName ++ '_' : show n) ty), n))
+                       opts
          in if optStrs == []
                then Nothing
                else Just ("    switch (tgt->" ++ fName ++ "_tag) {\n"
@@ -552,7 +558,7 @@ byteSizeOf gamma (Tycon tyName) =
           typeOf (Blk _) = throw $ Exceptions.Unsupported "Nested blocks."
           typeOf (Field _ ty) = ty
 byteSizeOf _     (TyConapp _ _) = Nothing
-byteSizeOf _ (SumTy {}) = throw $ Exceptions.Unsupported "Sum Types."
+byteSizeOf _ (SumTy {}) = Nothing --throw $ Exceptions.Unsupported "byteSizeOf Sum Types."
 
 -- only works on bfields, helper function to compute the ctype of a given bfield
 cTypeOf :: Ty -> String
