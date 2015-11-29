@@ -142,7 +142,7 @@ genSize gamma blk@(Block blkName entries) =
           dynamicSizeOf (Field _ (BField {})) = ""
           dynamicSizeOf (Field fName (Tycon tyName)) = 
             -- We know from the typechecker that this type must be in gamma
-            "    size += " ++ tyName ++ "_size(b->" ++ fName ++ ");\n"
+            "    size += " ++ tyName ++ "_size(&(b->" ++ fName ++ "));\n"
           dynamicSizeOf (Field fName hot@(TyConapp ty tys)) =
             case ty of
               (Tycon "array") -> 
@@ -429,6 +429,8 @@ genUnpack gamma (Block n entries) =
                               ++ fName ++ "_len * sizeof(" ++ tyName ++ "));\n"
                   _ -> throw (Exceptions.Unsupported
                              "Nested Higher Order types."))
+             ++ "    if (tgt->" ++ fName ++ "_len < 0) tgt->"
+                                ++ fName ++ "_len = 0;\n" -- TODO impliment properly
              ++ "    for(" ++ iteratorName ++ " = 0; "
                         ++ iteratorName ++ " < tgt->"
                         ++ fName ++ "_len; ++" ++ iteratorName ++ ") {\n"
@@ -524,7 +526,10 @@ blockSize gamma (Block _ entries) =
             then Right (i `div` 8)
             else throw $ Exceptions.Unsupported "Unaligned bitfields."
       sizeOfType (Field _ (Tycon tyName)) =
-            blockSize gamma (fromJust (tyName `M.lookup` gamma))
+        let bs = blockSize gamma (fromJust (tyName `M.lookup` gamma))
+         in case bs of
+              (Right _) -> bs
+              (Left _) -> Left 0
       sizeOfType (Field _ (TyConapp t tys)) =
             case t of
               (Tycon "array") ->

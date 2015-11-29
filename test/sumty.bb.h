@@ -1,5 +1,5 @@
-#ifndef BYTE_BLOCKS__ESQLBJKYOPBHWDSHLFEG
-#define BYTE_BLOCKS__ESQLBJKYOPBHWDSHLFEG
+#ifndef BYTE_BLOCKS__OGRAYHUQQDQAYWIPPPSB
+#define BYTE_BLOCKS__OGRAYHUQQDQAYWIPPPSB
 #include <string.h>
 #include <stdint.h>
 #include <endian.h>

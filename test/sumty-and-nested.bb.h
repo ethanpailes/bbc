@@ -1,5 +1,5 @@
-#ifndef BYTE_BLOCKS__CKYKOBHGDDQWAPENDWTI
-#define BYTE_BLOCKS__CKYKOBHGDDQWAPENDWTI
+#ifndef BYTE_BLOCKS__DVGUBCQEFUAEUAIXBDZH
+#define BYTE_BLOCKS__DVGUBCQEFUAEUAIXBDZH
 #include <string.h>
 #include <stdint.h>
 #include <endian.h>

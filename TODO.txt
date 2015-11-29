@@ -35,6 +35,8 @@ Language Features:
     - Allow user to assign text name to the tag number
     - User still needs to specify the actual number to preserve the principle
         that disk layout should be as clear as possible
+  Fields as sumty tags
+  arrays with length tag translation rules?
 
 
 Optimizations & implementation clean up:

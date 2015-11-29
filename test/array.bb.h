@@ -1,5 +1,5 @@
-#ifndef BYTE_BLOCKS__DPUHHIRWXXPQKJQHQRDL
-#define BYTE_BLOCKS__DPUHHIRWXXPQKJQHQRDL
+#ifndef BYTE_BLOCKS__CXIHRGYUHXYNXDKXZFTY
+#define BYTE_BLOCKS__CXIHRGYUHXYNXDKXZFTY
 #include <string.h>
 #include <stdint.h>
 #include <endian.h>
@@ -53,6 +53,7 @@ int test_unpack_new(test *tgt, const char const *src)
     uint16_t f2_iter = 0;
     tgt->f2_len = be16toh(* ((uint16_t*)(src + bytes_consumed))); bytes_consumed += 2;
     tgt->f2 = malloc(tgt->f2_len * 4);
+    if (tgt->f2_len < 0) tgt->f2_len = 0;
     for(f2_iter = 0; f2_iter < tgt->f2_len; ++f2_iter) {
         tgt->f2[f2_iter] = be32toh(* ((uint32_t*)(src + bytes_consumed))); bytes_consumed += 4;
     }

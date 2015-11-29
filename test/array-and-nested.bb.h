@@ -1,5 +1,5 @@
-#ifndef BYTE_BLOCKS__KTZYYDWSLLKVHIYMPLXL
-#define BYTE_BLOCKS__KTZYYDWSLLKVHIYMPLXL
+#ifndef BYTE_BLOCKS__QKNPJPTRNPRQGIZCWTDR
+#define BYTE_BLOCKS__QKNPJPTRNPRQGIZCWTDR
 #include <string.h>
 #include <stdint.h>
 #include <endian.h>
@@ -56,6 +56,7 @@ int inner_unpack_new(inner *tgt, const char const *src)
     uint32_t f3_iter = 0;
     tgt->f3_len = be32toh(* ((uint32_t*)(src + bytes_consumed))); bytes_consumed += 4;
     tgt->f3 = malloc(tgt->f3_len * 8);
+    if (tgt->f3_len < 0) tgt->f3_len = 0;
     for(f3_iter = 0; f3_iter < tgt->f3_len; ++f3_iter) {
         tgt->f3[f3_iter] = le64toh(* ((int64_t*)(src + bytes_consumed))); bytes_consumed += 8;
     }
@@ -149,6 +150,7 @@ int outer_unpack_new(outer *tgt, const char const *src)
     uint16_t f2_iter = 0;
     tgt->f2_len = be16toh(* ((uint16_t*)(src + bytes_consumed))); bytes_consumed += 2;
     tgt->f2 = malloc(tgt->f2_len * sizeof(inner));
+    if (tgt->f2_len < 0) tgt->f2_len = 0;
     for(f2_iter = 0; f2_iter < tgt->f2_len; ++f2_iter) {
         bytes_consumed += inner_unpack_new(&(tgt->f2[f2_iter]), (src + bytes_consumed));
     }
