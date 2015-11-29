@@ -1,6 +1,7 @@
 
 BBCC=$(shell stack exec which bbc)
 CC=gcc
+CFLAGS=-lzlib
 
 build: kafka
 
@@ -10,8 +11,8 @@ build: kafka
 kafka.o: kafka.c kafka-types.bb.h
 	$(CC) $(FLAGS) $(CFLAGS) -c $<
 
-kafka: kafka.o
-	${CC} -o kafka kafka.o
+kafka: kafka.o kafka-types.bb
+	${CC} ${FLAGS} ${CFLAGS} -o kafka kafka.o
 
 clean:
 	rm -f *.bb.h

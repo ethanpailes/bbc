@@ -65,30 +65,9 @@ block message
   value : bytes
 end
 
-
-
-block pres_part
-  partition : 32sb
-  array : 32sb message
-end
-
-block pres_topic
-  topic_name : string
-  array : 32sb pres_part
-end
-
-block produce_request
-  required_acks : 16sb
-  timout : 32sb
-  topics : pres_topic
-end
-
-
-
 block preq_part
-  partition_no : 32sb
-  partition_error_code : 16sb
-  offset : 64sb
+  partition : 32sb
+  messages : array 32sb message
 end
 
 block preq_topic
@@ -96,6 +75,25 @@ block preq_topic
   partitions : array 32sb preq_part
 end
 
-block produce_response
+block produce_request
+  required_acks : 16sb
+  timeout : 32sb
   topics : array 32sb preq_topic
+end
+
+
+
+block pres_part
+  partition_no : 32sb
+  partition_error_code : 16sb
+  offset : 64sb
+end
+
+block pres_topic
+  topic_name : string
+  partitions : array 32sb preq_part
+end
+
+block produce_response
+  topics : array 32sb pres_topic
 end
