@@ -1,7 +1,7 @@
 
 BBCC=$(shell stack exec which bbc)
 CC=gcc
-CFLAGS=-lzlib
+CFLAGS=
 
 build: kafka
 

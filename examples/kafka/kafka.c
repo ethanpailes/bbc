@@ -160,29 +160,6 @@ void read_and_print_metadata(FILE * sock)
         metadata_response_free(&res);
 }
 
-
-void produce_message(FILE * sock)
-{
-        message m;
-        m.crc = 0; // TODO: actually compute crc
-        m.magic_byte = 0;
-        m.attributes = 0;
-        m.key.b_len = 0;
-        m.value.b = "Byte Blocks example message.";
-        m.value.b_len = strlen(m.value.b);
-
-        preq_part part = {/* partition */ 0, /* len */ 1, &m};
-
-        preq_topic topic = { KAFKA_STR( KAFKA_TOPIC ), 1, &part};
-        
-        produce_request req;
-        req.required_acks = 1;
-        req.timeout = 5000;
-        req.topics_len = 1;
-        req.topics = &topic;
-}
-
-
 int main(int argc, char *argv[])
 {
         FILE * sock = open_socket(KAFKA_LOCATION, KAFKA_PORT);
@@ -191,8 +168,6 @@ int main(int argc, char *argv[])
 
         place_metadata_request(sock);
         read_and_print_metadata(sock);
-
-        
 
         fclose(sock);
         return 0;
