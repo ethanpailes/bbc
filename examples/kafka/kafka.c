@@ -90,11 +90,6 @@ void place_metadata_request(FILE * sock)
 
         wrapper_write(&w, sock);
 
-        FILE * fp = fopen("/tmp/req-old.dat", "wb");
-        wrapper_write(&w, fp);
-        fclose(fp);
-
-
         /* clean up */
         free(w.msg);
 }
