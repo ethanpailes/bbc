@@ -77,20 +77,23 @@ void place_metadata_request(FILE * sock)
 
         /* A singleton metadata_request */
         metadata_request mr;
+        mr.hdr = req_header;
         mr.topics_len = 1;
         mr.topics = &kafka_topic;
 
         /* pack the message in a length prefixing wrapper */
         wrapper w;
-        w.msg_len = metadata_request_size(&mr)
-                        + request_message_hdr_size(&req_header);
+        w.msg_len = metadata_request_size(&mr);
         w.msg = malloc(w.msg_len);
-        request_message_hdr_pack(&req_header, w.msg);
 
-
-        metadata_request_pack(&mr, w.msg + request_message_hdr_size(&req_header));
+        metadata_request_pack(&mr, w.msg);
 
         wrapper_write(&w, sock);
+
+        FILE * fp = fopen("/tmp/req-old.dat", "wb");
+        wrapper_write(&w, fp);
+        fclose(fp);
+
 
         /* clean up */
         free(w.msg);

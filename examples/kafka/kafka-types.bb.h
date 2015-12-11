@@ -1,5 +1,5 @@
-#ifndef BYTE_BLOCKS__VYFXTEOJNFINDSZNBCDA
-#define BYTE_BLOCKS__VYFXTEOJNFINDSZNBCDA
+#ifndef BYTE_BLOCKS__YANAXFAKGLYSIKTAZGKJ
+#define BYTE_BLOCKS__YANAXFAKGLYSIKTAZGKJ
 #include <string.h>
 #include <stdint.h>
 #include <endian.h>
@@ -341,6 +341,7 @@ void request_message_hdr_free(request_message_hdr *tgt)
 
 
 typedef struct metadata_request {
+    request_message_hdr hdr;
     int32_t topics_len;
     string * topics;
 } metadata_request;
@@ -348,6 +349,7 @@ typedef struct metadata_request {
 int metadata_request_size(const metadata_request const * b)
 {
     int size = 4;
+    size += request_message_hdr_size(&(b->hdr));
     int32_t topics_iter = 0;
     for(topics_iter = 0; topics_iter < b->topics_len; ++topics_iter) {
         size += string_size(b->topics + topics_iter);
@@ -357,6 +359,7 @@ int metadata_request_size(const metadata_request const * b)
 int metadata_request_pack(const metadata_request const *src, char *tgt)
 {
     size_t bytes_written = 0;
+    bytes_written += request_message_hdr_pack(&(src->hdr), (tgt + bytes_written));
     *((int32_t*)(tgt + bytes_written)) = htobe32(src->topics_len); bytes_written += 4;
     int32_t topics_iter;
     for(topics_iter = 0; topics_iter < src->topics_len; ++topics_iter) {
@@ -368,6 +371,7 @@ int metadata_request_pack(const metadata_request const *src, char *tgt)
 int metadata_request_unpack_new(metadata_request *tgt, const char const *src)
 {
     size_t bytes_consumed = 0;
+    bytes_consumed += request_message_hdr_unpack_new(&(tgt->hdr), (src + bytes_consumed));
     int32_t topics_iter = 0;
     tgt->topics_len = be32toh(* ((int32_t*)(src + bytes_consumed))); bytes_consumed += 4;
     tgt->topics = malloc(tgt->topics_len * sizeof(string));
@@ -396,9 +400,26 @@ int metadata_request_read_new(metadata_request *tgt, FILE *f)
     size_t used = 0;
     char *buff = malloc(buff_len);
 metadata_requestRSEQ0a:
-    if (used + 4 > buff_len) {
+    if (used + 2 > buff_len) {
         grow_buff(&buff, &buff_len);
         goto metadata_requestRSEQ0a;
+    } else {
+        if (fread(buff + used, 2, 1, f) != 1) return false;
+        used += 2;
+    }
+    int16_t s_len = be16toh(*( (( int16_t *) (buff + used)) - 1));
+metadata_requestRSEQ0b:
+    if (used + (s_len * 1) > buff_len) {
+        grow_buff(&buff, &buff_len);
+        goto metadata_requestRSEQ0b;
+    } else {
+        if ((s_len * 1) && fread(buff + used, (s_len * 1), 1, f) != 1) return false;
+        used += (s_len * 1);
+    }
+metadata_requestRSEQ1a:
+    if (used + 4 > buff_len) {
+        grow_buff(&buff, &buff_len);
+        goto metadata_requestRSEQ1a;
     } else {
         if (fread(buff + used, 4, 1, f) != 1) return false;
         used += 4;
@@ -406,19 +427,19 @@ metadata_requestRSEQ0a:
     int32_t topics_len = be32toh(*( (( int32_t *) (buff + used)) - 1));
     int32_t topics_iter;
     for(topics_iter = 0; topics_iter < topics_len; ++topics_iter) {
-    metadata_requestRSEQ0string0a:
+    metadata_requestRSEQ1string0a:
         if (used + 2 > buff_len) {
             grow_buff(&buff, &buff_len);
-            goto metadata_requestRSEQ0string0a;
+            goto metadata_requestRSEQ1string0a;
         } else {
             if (fread(buff + used, 2, 1, f) != 1) return false;
             used += 2;
         }
         int16_t s_len = be16toh(*( (( int16_t *) (buff + used)) - 1));
-    metadata_requestRSEQ0string0b:
+    metadata_requestRSEQ1string0b:
         if (used + (s_len * 1) > buff_len) {
             grow_buff(&buff, &buff_len);
-            goto metadata_requestRSEQ0string0b;
+            goto metadata_requestRSEQ1string0b;
         } else {
             if ((s_len * 1) && fread(buff + used, (s_len * 1), 1, f) != 1) return false;
             used += (s_len * 1);
@@ -430,6 +451,7 @@ metadata_requestRSEQ0a:
 }
 void metadata_request_free(metadata_request *tgt)
 {
+    request_message_hdr_free(&(tgt->hdr));
     int32_t topics_iter = 0;
     for(topics_iter = 0; topics_iter < tgt->topics_len; ++topics_iter) {
         string_free(tgt->topics + topics_iter);
