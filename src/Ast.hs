@@ -4,9 +4,16 @@ import Control.Monad
 import Data.List
 import Data.List.Utils
 import Data.Char
+import Control.Applicative
+import qualified Data.Text as T
 
 class Pretty a where
   pretty :: a -> String 
+  tpretty :: a -> T.Text
+  tpretty = (T.pack . pretty)
+  pretty = (T.unpack . tpretty)
+  {-# MINIMAL pretty | tpretty #-}
+
 type Name = String
 data Sign = Signed | Unsigned
   deriving( Eq, Ord, Show )
@@ -50,8 +57,8 @@ instance Pretty Ty where
   pretty (TyConapp ty tys) = pretty ty ++ (' ' : unwords (map pretty tys))
   pretty (SumTy tag options) =
     let prettyOpts (ty, code) = pretty ty ++ " = " ++ show code
-     in "tag " ++ pretty tag ++ " foropts " 
-          ++ intercalate " | " (map prettyOpts options)
+     in "tag " ++ pretty tag ++ " foropts { " 
+          ++ intercalate " | " (map prettyOpts options) ++ " }"
 {-
 tag = BField 16 Unsigned BigEndian
 opt1 = BField 8 Unsigned BigEndian

@@ -16,12 +16,18 @@ executable bbc
   hs-source-dirs:      src
   main-is:             Main.hs
   default-language:    Haskell2010
-  ghc-options: -Wall
+  default-extensions:
+        OverloadedStrings
+        FlexibleContexts
+        TemplateHaskell
+  ghc-options:
+        -Wall
   other-modules:
         Ast
       , Exceptions
       , GenC
       , Parse
+      , ParseNew
       , TypeCheck
   build-depends:
         base >= 4.7 && < 5
@@ -30,3 +36,5 @@ executable bbc
       , MissingH
       , random == 1.1
       , containers == 0.5.6.2
+      , megaparsec == 4.2.0
+      , text == 1.2.1.3

@@ -6,12 +6,14 @@ import System.Environment
 import Text.ParserCombinators.Parsec
 import System.Console.GetOpt
 import Control.Exception
+import Control.Monad
 import Data.Either
 
 import qualified Parse
 import qualified GenC
 import qualified TypeCheck
 import qualified Exceptions
+import qualified ParseNew
 
 
 
@@ -91,8 +93,7 @@ runCompiler opts files =
       in
         if test
         then let testsPass = foldl
-                        (\flag tst -> -- TODO has to be a cleaner way
-                            flag >>= \f -> tst >>= \t -> return (t && f))
+                        (liftM2 (&&))
                         (return True) tests
               in testsPass >>= \ok ->
                           putStrLn (if ok then "[ PASSED ]" else "[ FAIL ]")
