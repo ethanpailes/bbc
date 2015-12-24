@@ -7,6 +7,8 @@ A dsl to describe ad-hoc data and define language agnostic record structures.
 If you don't already have it installed, install
 [stack](https://github.com/commercialhaskell/stack)
 
+Clone the repo
+
     git clone git@github.com:ethanpailes/bbc.git
 
 or
