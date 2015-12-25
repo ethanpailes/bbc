@@ -1,17 +1,28 @@
 module ParseNew where
 import Test.QuickCheck
 import Ast
+import Data.Char
 
 import Text.Megaparsec
 import Text.Megaparsec.Text
 import qualified Text.Megaparsec.Lexer as L
 import Data.Text
 
+-- predicate-and. I can't beleive that this isn't in the Prelude.
+pand :: (a -> Bool) -> (a -> Bool) -> a -> Bool
+pand f g x = f x && g x
 
 sc :: Parser ()
-sc = L.space (spaceChar >> return ()) lineComment blockComment
+sc = L.space (spaceNoNewline >> return ()) lineComment blockComment
     where lineComment = L.skipLineComment "//"
           blockComment = L.skipBlockComment "/*" "*/"
+          spaceNoNewline = satisfy $ (/= '\n') `pand` isSpace
+
+scWithNewlines :: Parser ()
+scWithNewlines = L.space (spaceChar >> return ()) lineComment blockComment
+    where lineComment = L.skipLineComment "//"
+          blockComment = L.skipBlockComment "/*" "*/"
+
 
 lexeme :: Parser a -> Parser a
 lexeme = L.lexeme sc
@@ -19,8 +30,8 @@ lexeme = L.lexeme sc
 symbol :: String -> Parser Name
 symbol = L.symbol sc
 
---decimal :: Parser Integer
---decimal = lexeme L.integer
+decimal :: Parser Integer
+decimal = lexeme L.integer
 
 int :: Parser Int
 int = fromIntegral <$> L.integer
@@ -93,7 +104,7 @@ parseOpt :: Parser (Ty, Integer)
 parseOpt = lexeme $ do
   ty <- parseTy
   _ <- symbol "="
-  tagNo <- L.integer
+  tagNo <- decimal
   pure (ty, tagNo)
 
 prop_ParseTyParsesArbitraryType :: Ty -> Bool
@@ -104,6 +115,27 @@ runParserTest p input sat =
   case runParser p "test snippet" input of
     Right res -> sat res
     Left _ -> False
+
+parseBlock :: Parser Block
+parseBlock = lexeme $ do
+  _ <- rword "block"
+  blockName <- identifier
+  entries <- some parseEntry
+  _ <- rword "end"
+  pure $ Block blockName entries
+
+parseEntry :: Parser Entry
+parseEntry = lexeme $ do
+  fieldName <- identifier
+  _ <- lexeme $ char ':'
+  ty <- parseTy
+  return $ Field fieldName ty
+
+prop_ParseEntryParsesArbitraryField :: Entry -> Bool
+prop_ParseEntryParsesArbitraryField (Blk {}) = True -- ignore
+prop_ParseEntryParsesArbitraryField f =
+  runParserTest parseEntry (tpretty f) (== f)
+
 
 return []
 testMod :: IO Bool
