@@ -2,20 +2,37 @@ module ParseNew where
 import Test.QuickCheck
 import Ast
 import Data.Char
+import Data.Either
 
 import Text.Megaparsec
+import Text.Megaparsec.Pos
 import Text.Megaparsec.Text
 import qualified Text.Megaparsec.Lexer as L
 import qualified Data.Text as T
 
 
-parseFile :: Parser [Block]
-parseFile = scWithNewlines >> many (lexemeN parseBlock)
+myEof :: Parser ()
+myEof = eof
 
+parseFile ::
+    String -> -- the name of the source file
+    T.Text -> -- the text input stream from the file
+    Either ParseError [Block]
+parseFile sourceFile inputStream = reverse <$> parseRest [] initialState
+  where initialState = State inputStream (newPos sourceFile 1 1) defaultTabWidth
+        paddedParseBlock = lexemeN $ scWithNewlines >> parseBlock
+        parseRest acc state =
+          if isRight $ snd $ runParser' eof state
+             then Right acc else
+          case runParser' paddedParseBlock state of
+            (state', Right block) -> parseRest (block:acc) state'
+            (_, Left e) -> Left e
 
 prop_ParseBlockList :: [Block] -> Bool
 prop_ParseBlockList bs = 
-  runParserTest parseFile fileTest (== bs)
+  case parseFile "test" fileTest of
+    (Left e) -> False
+    (Right x) -> x == bs
     where fileTest = T.intercalate "\n\n" $ map tpretty bs
 
 -- predicate-and. I can't beleive that this isn't in the Prelude.
