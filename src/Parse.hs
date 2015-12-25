@@ -21,9 +21,6 @@ decimal = do
     let n = foldl (\x d -> 10*x + toInteger (digitToInt d)) 0 digits
     seq n (return n)
 
-reserved :: [String]
-reserved = ["end", "block", "tag", "foropts"]
-
 -- |Whitespaces that is not a newline
 justSpace :: Parser Char
 justSpace = satisfy $ \c -> isSpace c && c /= '\n'

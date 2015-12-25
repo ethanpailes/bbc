@@ -7,6 +7,9 @@ import Data.Char
 import Control.Applicative
 import qualified Data.Text as T
 
+reserved :: [String]
+reserved = ["end", "block", "tag", "foropts"]
+
 class Pretty a where
   pretty :: a -> String 
   tpretty :: a -> T.Text
@@ -75,7 +78,8 @@ instance Arbitrary Ty where
         e <- arbitrary
         return $ BField len s e
       aTycon = liftM Tycon (suchThat arbitrary
-                              (\list -> all isLetter list && not (null list)))
+                              (\list -> all isLetter list && not (null list)
+                                        && list `notElem` reserved))
       aTyConapp = do
         ty <- aTycon
         tys <- suchThat (listOf aTycon) (not . null)

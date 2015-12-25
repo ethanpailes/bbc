@@ -6,7 +6,18 @@ import Data.Char
 import Text.Megaparsec
 import Text.Megaparsec.Text
 import qualified Text.Megaparsec.Lexer as L
-import Data.Text
+import qualified Data.Text as T
+
+
+parseFile :: Parser [Block]
+parseFile = scWithNewlines >> many parseBlock
+
+
+prop_ParseBlockList :: [Block] -> Bool
+prop_ParseBlockList bs = 
+  runParserTest parseFile fileTest (== bs)
+    where fileTest = T.intercalate "\n\n" $ map tpretty bs
+
 
 -- predicate-and. I can't beleive that this isn't in the Prelude.
 pand :: (a -> Bool) -> (a -> Bool) -> a -> Bool
@@ -39,8 +50,6 @@ decimal = lexeme L.integer
 int :: Parser Int
 int = fromIntegral <$> L.integer
 
-reserved :: [String]
-reserved = ["end", "block", "tag", "foropts"]
 
 -- Could do a fun thing with TemplateHaskell where I check that
 -- the rword is in reserved at compile time.
@@ -83,7 +92,7 @@ parseBField = lexeme $ do
         'l' -> LittleEndian)
 
 parseTycon :: Parser Ty
-parseTycon = lexeme $ Tycon <$> identifier
+parseTycon = lexeme (Tycon <$> identifier)
 
 parseTyConapp :: Parser Ty
 parseTyConapp = lexeme $ do
@@ -170,3 +179,6 @@ testMod =
   >> putStrLn "prop_ParseDoubleLevelBlock"
   >> quickCheckWith stdArgs{ maxSize = 25 }
               prop_ParseDoubleLevelBlock
+  >> putStrLn "prop_ParseBlockList"
+  >> quickCheckWith stdArgs{ maxSize = 15 }
+              prop_ParseBlockList
