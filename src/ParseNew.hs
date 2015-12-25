@@ -27,6 +27,9 @@ scWithNewlines = L.space (spaceChar >> return ()) lineComment blockComment
 lexeme :: Parser a -> Parser a
 lexeme = L.lexeme sc
 
+lexemeN :: Parser a -> Parser a
+lexemeN = L.lexeme scWithNewlines
+
 symbol :: String -> Parser Name
 symbol = L.symbol sc
 
@@ -89,6 +92,7 @@ parseTyConapp = lexeme $ do
             <?> "arguments for the " ++ pretty ty ++ " type constructor"
   pure (TyConapp ty tys)
 
+-- TODO add support for single line
 parseSumTy :: Parser Ty
 parseSumTy = lexeme $ do
   _ <- rword "tag"
@@ -111,22 +115,18 @@ prop_ParseTyParsesArbitraryType :: Ty -> Bool
 prop_ParseTyParsesArbitraryType t =
   runParserTest parseTy (tpretty t) (== t)
 
-runParserTest p input sat = 
-  case runParser p "test snippet" input of
-    Right res -> sat res
-    Left _ -> False
 
 parseBlock :: Parser Block
-parseBlock = lexeme $ do
+parseBlock = lexemeN $ do
   _ <- rword "block"
-  blockName <- identifier
+  blockName <- lexemeN identifier
   entries <- some parseEntry
   _ <- rword "end"
   pure $ Block blockName entries
 
 parseEntry :: Parser Entry
-parseEntry = lexeme $ do
-  fieldName <- identifier
+parseEntry = lexemeN $ do
+  fieldName <- try identifier
   _ <- lexeme $ char ':'
   ty <- parseTy
   return $ Field fieldName ty
@@ -136,6 +136,19 @@ prop_ParseEntryParsesArbitraryField (Blk {}) = True -- ignore
 prop_ParseEntryParsesArbitraryField f =
   runParserTest parseEntry (tpretty f) (== f)
 
+
+prop_ParseSingleLevelBlock :: Block -> Bool
+prop_ParseSingleLevelBlock b =
+  runParserTest parseBlock (tpretty b) (== b)
+
+testB =
+  Block "\200" [Field "C\235" (SumTy (BField 2 Unsigned NativeEndian) [(Tycon "nn",0)])]
+
+
+runParserTest p input sat = 
+  case runParser p "test snippet" input of
+    Right res -> sat res
+    Left _ -> False
 
 return []
 testMod :: IO Bool
