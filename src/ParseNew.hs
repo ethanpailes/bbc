@@ -125,7 +125,11 @@ parseBlock = lexemeN $ do
   pure $ Block blockName entries
 
 parseEntry :: Parser Entry
-parseEntry = lexemeN $ do
+parseEntry = lexemeN $ try (parseBlock >>= \b -> pure (Blk b)) <|> parseField
+
+
+parseField :: Parser Entry
+parseField = lexemeN $ do
   fieldName <- try identifier
   _ <- lexeme $ char ':'
   ty <- parseTy
@@ -141,15 +145,28 @@ prop_ParseSingleLevelBlock :: Block -> Bool
 prop_ParseSingleLevelBlock b =
   runParserTest parseBlock (tpretty b) (== b)
 
-testB =
-  Block "\200" [Field "C\235" (SumTy (BField 2 Unsigned NativeEndian) [(Tycon "nn",0)])]
-
+prop_ParseDoubleLevelBlock :: Block -> Block -> Bool
+prop_ParseDoubleLevelBlock (Block n (e:es)) inner =
+  runParserTest parseBlock (tpretty c) (== c)
+    where c = Block n (e : Blk inner : es)
+prop_ParseDoubleLevelBlock (Block _ []) inner = -- just test the inner
+  runParserTest parseBlock (tpretty inner) (== inner)
 
 runParserTest p input sat = 
   case runParser p "test snippet" input of
     Right res -> sat res
     Left _ -> False
 
-return []
-testMod :: IO Bool
-testMod = $quickCheckAll
+
+testMod :: IO ()
+testMod =
+     putStrLn "prop_ParseTyParsesArbitraryType"
+  >> quickCheck prop_ParseTyParsesArbitraryType
+  >> putStrLn "prop_ParseEntryParsesArbitraryField"
+  >> quickCheck prop_ParseEntryParsesArbitraryField
+  >> putStrLn "prop_ParseSingleLevelBlock"
+  >> quickCheckWith stdArgs{ maxSize = 25 }
+              prop_ParseSingleLevelBlock
+  >> putStrLn "prop_ParseDoubleLevelBlock"
+  >> quickCheckWith stdArgs{ maxSize = 25 }
+              prop_ParseDoubleLevelBlock
