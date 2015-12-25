@@ -10,14 +10,13 @@ import qualified Data.Text as T
 
 
 parseFile :: Parser [Block]
-parseFile = scWithNewlines >> many parseBlock
+parseFile = scWithNewlines >> many (lexemeN parseBlock)
 
 
 prop_ParseBlockList :: [Block] -> Bool
 prop_ParseBlockList bs = 
   runParserTest parseFile fileTest (== bs)
     where fileTest = T.intercalate "\n\n" $ map tpretty bs
-
 
 -- predicate-and. I can't beleive that this isn't in the Prelude.
 pand :: (a -> Bool) -> (a -> Bool) -> a -> Bool
@@ -126,29 +125,29 @@ prop_ParseTyParsesArbitraryType t =
 
 
 parseBlock :: Parser Block
-parseBlock = lexemeN $ do
+parseBlock = lexeme $ do
   _ <- rword "block"
   blockName <- lexemeN identifier
-  entries <- some parseEntry
+  entries <- many parseEntry
   _ <- rword "end"
-  pure $ Block blockName entries
+  pure (Block blockName entries)
 
 parseEntry :: Parser Entry
-parseEntry = lexemeN $ try (parseBlock >>= \b -> pure (Blk b)) <|> parseField
-
+parseEntry = lexemeN $
+  try (parseBlock >>= \b -> pure (Blk b)) <|> parseField >>= \e ->
+                                                  sc >> newline >> sc >> pure e
 
 parseField :: Parser Entry
-parseField = lexemeN $ do
+parseField = lexeme $ do
   fieldName <- try identifier
-  _ <- lexeme $ char ':'
+  _ <- lexeme (char ':')
   ty <- parseTy
-  return $ Field fieldName ty
+  return (Field fieldName ty)
 
 prop_ParseEntryParsesArbitraryField :: Entry -> Bool
 prop_ParseEntryParsesArbitraryField (Blk {}) = True -- ignore
 prop_ParseEntryParsesArbitraryField f =
   runParserTest parseEntry (tpretty f) (== f)
-
 
 prop_ParseSingleLevelBlock :: Block -> Bool
 prop_ParseSingleLevelBlock b =

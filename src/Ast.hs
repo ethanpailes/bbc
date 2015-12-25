@@ -94,8 +94,8 @@ data Entry = Blk Block | Field Name Ty
   deriving( Eq, Ord, Show )
 
 instance Pretty Entry where
-  pretty (Blk b) = replace "\n" "\n    " (pretty b) -- handle nesting
-  pretty (Field n ty) = n ++ " : " ++ pretty ty
+  pretty (Blk b) = replace "\n" "\n    " (pretty b) ++ "\n" -- handle nesting
+  pretty (Field n ty) = n ++ " : " ++ pretty ty ++ "\n"
 
 -- To avoid potentially infinite blocks this only generates fields
 instance Arbitrary Entry where
@@ -109,7 +109,7 @@ data Block = Block Name [Entry]
 
 instance Pretty Block where
   pretty (Block n es) = "block " ++ n ++ "\n"
-          ++ concatMap (\e -> "    " ++ pretty e ++ "\n") es ++ "end"
+          ++ concatMap (\e -> "    " ++ pretty e) es ++ "end"
 
 instance Arbitrary Block where
   arbitrary = do
