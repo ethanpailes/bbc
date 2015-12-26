@@ -3,13 +3,10 @@
 
 module Main where
 import System.Environment
-import Text.ParserCombinators.Parsec
 import System.Console.GetOpt
 import Control.Exception
-import Control.Monad
 import Data.Either
 
-import qualified Data.Text as T
 import qualified Data.Text.IO as Tio
 
 import qualified GenC

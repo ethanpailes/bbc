@@ -4,7 +4,6 @@ import Control.Monad
 import Data.List
 import Data.List.Utils
 import Data.Char
-import Control.Applicative
 import qualified Data.Text as T
 
 reserved :: [String]

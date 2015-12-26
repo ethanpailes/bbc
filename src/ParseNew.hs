@@ -3,6 +3,8 @@ import Test.QuickCheck
 import Ast
 import Data.Char
 import Data.Either
+import Exceptions
+import qualified Control.Exception as E
 
 import Text.Megaparsec
 import Text.Megaparsec.Pos
@@ -18,7 +20,7 @@ parseFile sourceFile inputStream = reverse <$> parseRest [] initialState
   where initialState = State inputStream (newPos sourceFile 1 1) defaultTabWidth
         paddedParseBlock = lexemeN $ scWithNewlines >> parseBlock
         parseRest acc state =
-          if isRight $ snd $ runParser' eof state
+          if isRight $ snd $ runParser' eof state -- if we are at EOF
              then Right acc else
           case runParser' paddedParseBlock state of
             (state', Right block) -> parseRest (block:acc) state'
@@ -27,7 +29,7 @@ parseFile sourceFile inputStream = reverse <$> parseRest [] initialState
 prop_ParseBlockList :: [Block] -> Bool
 prop_ParseBlockList bs = 
   case parseFile "test" fileTest of
-    (Left e) -> False
+    (Left _) -> False
     (Right x) -> x == bs
     where fileTest = T.intercalate "\n\n" $ map tpretty bs
 
@@ -94,14 +96,16 @@ parseBField = lexeme $ do
       width
       (case sign of
         'u' -> Unsigned
-        's' -> Signed)
+        's' -> Signed
+        _   -> E.throw (RealityBreach "Likely a bug in Test.Megaparsec"))
       (case endianness of
-        'n' -> NativeEndian
-        ' ' -> NativeEndian
+        'n'  -> NativeEndian
+        ' '  -> NativeEndian
         '\n' -> NativeEndian
         '\t' -> NativeEndian
-        'b' -> BigEndian
-        'l' -> LittleEndian)
+        'b'  -> BigEndian
+        'l'  -> LittleEndian
+        _    -> E.throw (RealityBreach "Likely a bug in Test.Megaparsec"))
 
 parseTycon :: Parser Ty
 parseTycon = lexeme (Tycon <$> identifier)
@@ -113,7 +117,6 @@ parseTyConapp = lexeme $ do
             <?> "arguments for the " ++ pretty ty ++ " type constructor"
   pure (TyConapp ty tys)
 
--- TODO add support for single line
 parseSumTy :: Parser Ty
 parseSumTy = lexeme $ do
   _ <- rword "tag"
@@ -127,7 +130,8 @@ curlies = lexeme . between (symbol "{") (symbol "}")
 
 parseOpts :: Parser () -- the whitespace consumer to be used
           -> Parser [(Ty, Integer)]
-parseOpts whitespace = (parseOpt `sepBy` symbol "|") >>= \o -> whitespace >> pure o
+parseOpts whitespace =
+  (parseOpt `sepBy` symbol "|") >>= \o -> whitespace >> pure o
 
 parseOpt :: Parser (Ty, Integer)
 parseOpt = do
@@ -177,11 +181,11 @@ prop_ParseDoubleLevelBlock (Block n (e:es)) inner =
 prop_ParseDoubleLevelBlock (Block _ []) inner = -- just test the inner
   runParserTest parseBlock (tpretty inner) (== inner)
 
+runParserTest :: Stream s t => Parsec s a -> s -> (a -> Bool) -> Bool
 runParserTest p input sat = 
   case runParser p "test snippet" input of
     Right res -> sat res
     Left _ -> False
-
 
 testMod :: IO ()
 testMod =
