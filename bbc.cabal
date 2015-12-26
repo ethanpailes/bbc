@@ -26,7 +26,6 @@ executable bbc
         Ast
       , Exceptions
       , GenC
-      , Parse
       , ParseNew
       , TypeCheck
   build-depends:

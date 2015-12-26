@@ -12,7 +12,6 @@ import Data.Either
 import qualified Data.Text as T
 import qualified Data.Text.IO as Tio
 
-import qualified Parse
 import qualified GenC
 import qualified TypeCheck
 import qualified Exceptions

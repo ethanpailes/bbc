@@ -3,8 +3,8 @@ build:
 	stack build
 
 test: build
-	stack exec bbc -- --test
 	$(MAKE) test -C test
+	# TODO add a way to run the quickcheck tests
 
 clean:
 	stack clean
