@@ -6,6 +6,7 @@ import Ast
 import Data.Char
 import Data.Either
 import Exceptions
+import Control.Monad
 import qualified Control.Exception as E
 
 import Text.Megaparsec
@@ -40,13 +41,13 @@ pand :: (a -> Bool) -> (a -> Bool) -> a -> Bool
 pand f g x = f x && g x
 
 sc :: Parser ()
-sc = L.space (spaceNoNewline >> return ()) lineComment blockComment
+sc = L.space (void spaceNoNewline) lineComment blockComment
     where lineComment = L.skipLineComment "//"
           blockComment = L.skipBlockComment "/*" "*/"
           spaceNoNewline = satisfy $ (/= '\n') `pand` isSpace
 
 scWithNewlines :: Parser ()
-scWithNewlines = L.space (spaceChar >> return ()) lineComment blockComment
+scWithNewlines = L.space (void spaceChar) lineComment blockComment
     where lineComment = L.skipLineComment "//"
           blockComment = L.skipBlockComment "/*" "*/"
 
@@ -79,7 +80,7 @@ identifier = lexeme (p >>= check)
           cs <- many alphaNumChar
           pure (c:cs)
         check x = if x `elem` reserved
-                     then fail $ (show x) ++ " is a reserved word!"
+                     then fail $ show x ++ " is a reserved word!"
                      else pure x
 
 parseTy :: Parser Ty
@@ -122,7 +123,7 @@ parseTyConapp = lexeme $ do
 parseSumTy :: Parser Ty
 parseSumTy = lexeme $ do
   _ <- rword "tag"
-  tag <- (parseBField <|> parseTycon)
+  tag <- parseBField <|> parseTycon
   _ <- rword "foropts"
   opts <- curlies (parseOpts scWithNewlines) <|> parseOpts sc
   pure $ SumTy tag opts
