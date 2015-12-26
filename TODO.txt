@@ -42,5 +42,3 @@ Language Features:
 Optimizations & implementation clean up:
   Text manipulation with Text rather than Strings
   Use langauge-c instead of plan-text manipulation
-  Switch to tokenizing parser
-
