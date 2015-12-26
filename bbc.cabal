@@ -26,7 +26,7 @@ executable bbc
         Ast
       , Exceptions
       , GenC
-      , ParseNew
+      , Parse
       , TypeCheck
   build-depends:
         base >= 4.7 && < 5

@@ -1,4 +1,6 @@
-module ParseNew where
+
+
+module Parse where
 import Test.QuickCheck
 import Ast
 import Data.Char

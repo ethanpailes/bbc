@@ -12,7 +12,7 @@ import qualified Data.Text.IO as Tio
 import qualified GenC
 import qualified TypeCheck
 import qualified Exceptions
-import qualified ParseNew
+import qualified Parse
 
 
 
@@ -65,14 +65,14 @@ main = do
   runCompiler opts inputFiles
 
 tests :: IO ()
-tests = sequence_ [ParseNew.testMod]
+tests = sequence_ [Parse.testMod]
 
 runCompiler :: Options -> [String] -> IO ()
 runCompiler opts files =
   let allBlocks = mapM parseFile files
       parseFile f = do
             contents <- Tio.readFile f
-            return $ ParseNew.parseFile f contents
+            return $ Parse.parseFile f contents
       Options { optDump = dump
               , optTgt = tgt
               , optOutput = out } = opts
