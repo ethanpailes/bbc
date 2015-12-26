@@ -10,10 +10,6 @@ import Text.Megaparsec.Text
 import qualified Text.Megaparsec.Lexer as L
 import qualified Data.Text as T
 
-
-myEof :: Parser ()
-myEof = eof
-
 parseFile ::
     String -> -- the name of the source file
     T.Text -> -- the text input stream from the file
@@ -91,7 +87,7 @@ parseBField = lexeme $ do
            <?> "BFields length integer."
   sign <- oneOf "us"
            <?> "BFields to specify 'u' (unsigned) or 's' (signed),"
-  endianness <- oneOf "bln \n\t"
+  endianness <- lookAhead (char '\n') <|> oneOf "bln \t"
            <?> "BFields to specify 'b' (big endian), 'l' (little endian), "
                 ++ "or 'b' (native endian). Defaults to native endian."
   pure $ BField
@@ -123,14 +119,18 @@ parseSumTy = lexeme $ do
   _ <- rword "tag"
   tag <- (parseBField <|> parseTycon)
   _ <- rword "foropts"
-  opts <- curlies (parseOpt `sepBy1` symbol "|")
+  opts <- curlies (parseOpts scWithNewlines) <|> parseOpts sc
   pure $ SumTy tag opts
 
 curlies :: Parser a -> Parser a
 curlies = lexeme . between (symbol "{") (symbol "}")
 
+parseOpts :: Parser () -- the whitespace consumer to be used
+          -> Parser [(Ty, Integer)]
+parseOpts whitespace = (parseOpt `sepBy` symbol "|") >>= \o -> whitespace >> pure o
+
 parseOpt :: Parser (Ty, Integer)
-parseOpt = lexeme $ do
+parseOpt = do
   ty <- parseTy
   _ <- symbol "="
   tagNo <- decimal
@@ -151,7 +151,7 @@ parseBlock = lexeme $ do
 
 parseEntry :: Parser Entry
 parseEntry = lexemeN $
-  try (parseBlock >>= \b -> pure (Blk b)) <|> parseField >>= \e ->
+  (try (parseBlock >>= \b -> pure (Blk b)) <|> parseField) >>= \e ->
                                                   sc >> newline >> sc >> pure e
 
 parseField :: Parser Entry
