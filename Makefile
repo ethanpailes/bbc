@@ -10,3 +10,5 @@ clean:
 	stack clean
 	$(MAKE) clean -C test
 
+monitor:
+	hdevtools admin -n --start-server

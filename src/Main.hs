@@ -14,8 +14,6 @@ import qualified TypeCheck
 import qualified Exceptions
 import qualified Parse
 
-
-
 data OptDump = DumpAst | DumpGen | DumpNoDump
   deriving(Eq,Ord,Show)
 data OptTgt = C
@@ -29,6 +27,7 @@ readTgt lang = throw $ Exceptions.UnknownTgtLang lang
 data Options = Options { optDump :: OptDump
                        , optTgt :: OptTgt
                        , optOutput :: String -> IO ()
+                       , optHelp :: Bool
                        }
 
 options :: [ OptDescr (Options -> IO Options) ]
@@ -39,6 +38,9 @@ options =
   , Option "i" ["dump-intermediary"]
       (NoArg (\opts -> return opts { optDump = DumpGen }))
       "Dump the intermediary representation."
+  , Option "h" ["help"]
+      (NoArg (\opts -> return opts { optHelp = True }))
+      "Print this message."
   , Option "t" ["target-lang"]
       (ReqArg
         (\arg opts -> return opts { optTgt = readTgt arg })
@@ -55,19 +57,31 @@ startOptions :: Options
 startOptions = Options { optDump = DumpNoDump
                        , optTgt = C
                        , optOutput = putStrLn
+                       , optHelp = False
                        }
+
 
 main :: IO ()
 main = do
   args <- getArgs
-  let (actions, inputFiles, _ {- errors -}) = getOpt RequireOrder options args
-  opts <- foldl (>>=) (return startOptions) actions
-  runCompiler opts inputFiles
+  case getOpt Permute options args of
+    (actions, inputFiles, []) -> do
+      opts <- foldl (>>=) (return startOptions) actions
+      if optHelp opts
+        then usage
+        else runCompiler opts inputFiles
+      where usage = putStrLn $ usageInfo header options
+    (_, _, errs) -> usage
+      where usage = putStrLn $ concat errs ++ usageInfo header options
+  where header = "Usage: bbc [OPTIONS...] files"
 
 tests :: IO ()
 tests = sequence_ [Parse.testMod]
 
-runCompiler :: Options -> [String] -> IO ()
+runCompiler ::
+  Options -> -- The compiler options as parsed out with getOpt
+  [String] -> -- The list of files to compile
+  IO ()
 runCompiler opts files =
   let allBlocks = mapM parseFile files
       parseFile f = do
