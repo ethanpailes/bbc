@@ -366,6 +366,7 @@ genRead gamma blk@(Block blkName _) =
                         ++ ", 1, f) != 1) return false;\n" -- TODO goto end
         ++ "        used += " ++ len ++ ";\n"
         ++ "    }\n"
+      endTag = "END_READ" ++ blkName
    in "int " ++ blkName ++ "_read_new(" ++ blkName ++ " *tgt, FILE *f)\n"
   ++ "{\n"
   ++ case blockSize gamma blk of
@@ -376,12 +377,15 @@ genRead gamma blk@(Block blkName _) =
        (Left _) ->
                  "    size_t buff_len = " ++ show readInitialBufferSize ++ ";\n"
               ++ "    size_t used = 0;\n"
+              ++ "    int ret = false;\n"
               ++ "    char *buff = malloc(buff_len);\n"
+              ++ "    if (!buff) return false;\n"
               ++ concatMap readSequenceStr
                     (zip (readSequences blk)
                        (map (\i -> blkName ++ "RSEQ" ++ show i)
                             [(0 :: Integer) .. ]))
-              ++ "    int ret = " ++ blkName ++ "_unpack_new(tgt, buff);\n"
+              ++ "    ret = " ++ blkName ++ "_unpack_new(tgt, buff);\n"
+              ++ endTag ++ ":\n"
               ++ "    free(buff);\n"
               ++ "    return ret;\n}"
 
