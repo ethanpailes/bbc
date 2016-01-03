@@ -359,11 +359,13 @@ genRead gamma blk@(Block blkName _) =
       readFixedSequence len tag readGaurd =  
            tag ++ ":\n"
         ++ "    if (used + " ++ len ++ " > buff_len) {\n"
-        ++ "        grow_buff(&buff, &buff_len);\n"
-        ++ "        goto " ++ tag ++ ";\n"
+        ++ "        if (grow_buff(&buff, &buff_len))\n"
+        ++ "            goto " ++ tag ++ ";\n"
+        ++ "        else\n"
+        ++ "            goto " ++ endTag ++ ";\n"
         ++ "    } else {\n"
         ++ "        if (" ++ readGaurd ++ "fread(buff + used, " ++ len
-                        ++ ", 1, f) != 1) return false;\n" -- TODO goto end
+                        ++ ", 1, f) != 1) goto " ++ endTag ++ ";\n"
         ++ "        used += " ++ len ++ ";\n"
         ++ "    }\n"
       endTag = "END_READ" ++ blkName
