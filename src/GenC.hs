@@ -44,6 +44,7 @@ gen gamma bs =
       ++ "    char *tmp = *buff;\n"
       ++ "    *len *=  2;\n"
       ++ "    *buff = malloc(*len);\n"
+      ++ "    if (*buff == NULL) return false;\n"
       ++ "    memcpy(*buff, tmp, old_len);\n"
       ++ "    free(tmp);\n"
       ++ "    return true;\n"
