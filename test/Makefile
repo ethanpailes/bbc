@@ -3,14 +3,21 @@ BBCC=$(shell stack exec which bbc)
 CC=gcc
 
 test: clean \
-			aligned-bitfields          aligned-bitfields.bb.h \
-			named-block                named-block.bb.h \
-			array                      array.bb.h \
-			array-and-nested           array-and-nested.bb.h \
-			large-array                array.bb.h \
-			sumty                      sumty.bb.h \
-			sumty-and-nested           sumty-and-nested.bb.h \
-			bad-read                   bad-read.bb.h
+	  aligned-bitfields.bb.h \
+	  aligned-bitfields \
+	  named-block.bb.h \
+	  named-block \
+	  array.bb.h \
+	  array \
+	  array-and-nested.bb.h \
+	  array-and-nested \
+	  large-array \
+	  sumty.bb.h \
+	  sumty \
+	  sumty-and-nested.bb.h \
+	  sumty-and-nested \
+	  bad-read.bb.h \
+	  bad-read
 	./test.sh aligned-bitfields 0 ./outfiles/aligned-bitfields.out aligned-bitfields
 	./test.sh compile-unknown-block.sh 1 ./outfiles/compile-unknown-block.sh.out unknown-block
 	./test.sh named-block 0 ./outfiles/named-block.out named-block
@@ -30,4 +37,19 @@ test: clean \
 
 clean:
 	rm -f *.bb.h
-	rm -f aligned-bitfields named-block unknown-block
+	rm -f \
+	  aligned-bitfields.bb.h \
+	  aligned-bitfields \
+	  named-block.bb.h \
+	  named-block \
+	  array.bb.h \
+	  array \
+	  array-and-nested.bb.h \
+	  array-and-nested \
+	  large-array \
+	  sumty.bb.h \
+	  sumty \
+	  sumty-and-nested.bb.h \
+	  sumty-and-nested \
+	  bad-read.bb.h \
+	  bad-read
