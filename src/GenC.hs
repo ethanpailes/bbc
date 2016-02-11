@@ -78,13 +78,6 @@ genBlock gamma b = unlines $ map (\genFun -> genFun gamma b) genFuns
                 , \_ _ -> "\n\n"]
 
 
-genStructure' :: NewGenFunc
-genStructure' _ (Block blockName' entries) = [
-    "typedef struct " <> blockName <> " {\n"
-  ]
-    where blockName = T.pack blockName'
-
-
 genStructure :: GenFunc
 genStructure _ (Block bName es) =
   "typedef struct " <> bName <> " {\n"
