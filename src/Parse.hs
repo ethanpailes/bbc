@@ -1,6 +1,10 @@
 
 
-module Parse where
+module Parse (
+   parseFile
+ , testMod
+ ) where
+
 import Test.QuickCheck
 import Ast
 import Data.Char
@@ -36,15 +40,11 @@ prop_ParseBlockList bs =
     (Right x) -> x == bs
     where fileTest = T.intercalate "\n\n" $ map tpretty bs
 
--- predicate-and. I can't beleive that this isn't in the Prelude.
-pand :: (a -> Bool) -> (a -> Bool) -> a -> Bool
-pand f g x = f x && g x
-
 sc :: Parser ()
 sc = L.space (void spaceNoNewline) lineComment blockComment
     where lineComment = L.skipLineComment "//"
           blockComment = L.skipBlockComment "/*" "*/"
-          spaceNoNewline = satisfy $ (/= '\n') `pand` isSpace
+          spaceNoNewline = satisfy $ liftM2 (&&) (/= '\n') isSpace
 
 scWithNewlines :: Parser ()
 scWithNewlines = L.space (void spaceChar) lineComment blockComment
@@ -84,7 +84,8 @@ identifier = lexeme (p >>= check)
                      else pure x
 
 parseTy :: Parser Ty
-parseTy = parseBField <|> parseSumTy <|> try parseTyConapp <|> parseTycon
+parseTy = parseBField <|> parseSumTy <|> parseFixedArray
+       <|> try parseTyConapp <|> parseTycon
 
 parseBField :: Parser Ty
 parseBField = lexeme $ do
@@ -100,7 +101,7 @@ parseBField = lexeme $ do
       (case sign of
         'u' -> Unsigned
         's' -> Signed
-        _   -> E.throw (RealityBreach "Likely a bug in Test.Megaparsec"))
+        _   -> E.throw (RealityBreach "Likely a bug in Text.Megaparsec"))
       (case endianness of
         'n'  -> NativeEndian
         ' '  -> NativeEndian
@@ -108,7 +109,15 @@ parseBField = lexeme $ do
         '\t' -> NativeEndian
         'b'  -> BigEndian
         'l'  -> LittleEndian
-        _    -> E.throw (RealityBreach "Likely a bug in Test.Megaparsec"))
+        _    -> E.throw (RealityBreach "Likely a bug in Text.Megaparsec"))
+
+
+parseFixedArray :: Parser Ty
+parseFixedArray = lexeme $ do
+  _ <- rword "arrayf"
+  ty <- parseTy
+  num <- decimal
+  pure $ FixedArray ty num
 
 parseTycon :: Parser Ty
 parseTycon = lexeme (Tycon <$> identifier)

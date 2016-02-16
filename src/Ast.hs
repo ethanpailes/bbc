@@ -7,7 +7,7 @@ import Data.Char
 import qualified Data.Text as T
 
 reserved :: [String]
-reserved = ["end", "block", "tag", "foropts"]
+reserved = ["end", "block", "tag", "foropts", "arrayf"]
 
 class Pretty a where
   pretty :: a -> String 
@@ -43,6 +43,7 @@ data Ty = BField Int Sign Endianness
         | Tycon Name
         | TyConapp Ty [Ty]
         | SumTy Ty [(Ty, Integer)]
+        | FixedArray Ty Integer
       deriving( Eq, Ord, Show )
 
 isSumTy :: Ty -> Bool
@@ -53,6 +54,10 @@ isBField :: Ty -> Bool
 isBField (BField {}) = True
 isBField _ = False
 
+isTycon :: Ty -> Bool
+isTycon (Tycon {}) = True
+isTycon _ = False
+
 instance Pretty Ty where
   pretty (BField len s e) = show len ++ pretty s ++ pretty e
   pretty (Tycon n) = n
@@ -61,16 +66,22 @@ instance Pretty Ty where
     let prettyOpts (ty, code) = pretty ty ++ " = " ++ show code
      in "tag " ++ pretty tag ++ " foropts { " 
           ++ intercalate " | " (map prettyOpts options) ++ " }"
-{-
-tag = BField 16 Unsigned BigEndian
-opt1 = BField 8 Unsigned BigEndian
-opt2 = BField 32 Signed NativeEndian
-s = SumTy tag [opt1, opt2]
--}
+  pretty (FixedArray ty num) = "arrayf " ++ pretty ty ++ (' ' : show num)
+
+-- tag = BField 16 Unsigned BigEndian
+-- fixed = FixedArray tag 19
+-- opt1 = BField 8 Unsigned BigEndian
+-- opt2 = BField 32 Signed NativeEndian
+-- s = SumTy tag [(opt1, 2), (opt2, 1)]
 
 instance Arbitrary Ty where
-  arbitrary = oneof [aTycon, aBFeild, aTyConapp, aSumTy]
+  arbitrary = oneof [aTycon, aBFeild, aTyConapp, aSumTy, aFixedArray]
     where
+      aFixedArray = do
+        len <- suchThat arbitrary (> 0)
+        ty <- suchThat arbitrary (isBField `por` isTycon)
+        pure $ FixedArray ty len
+          where por = liftM2 (||)
       aBFeild = do
         len <- suchThat arbitrary (> 0)
         s <- arbitrary

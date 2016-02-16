@@ -25,9 +25,9 @@ typeCheck (Block blockName entries : bs) gamma =
         case e of
           (Blk _) -> tc es
           (Field _ (BField {} )) -> tc es
-          (Field _ (Tycon tyName)) -> if tyName `M.member` gamma
-                                             then tc es
-                                             else throw $ UnknownBlock tyName
+          (Field _ (Tycon tyName)) ->
+            if tyName `M.member` gamma then tc es
+                 else throw $ UnknownBlock tyName
           (Field _ tca@(TyConapp ty tys)) ->
             case ty of
               (Tycon "array") ->
@@ -41,4 +41,14 @@ typeCheck (Block blockName entries : bs) gamma =
             if any (\x -> length x /= 1) (group (sort (map snd opts)))
                then throw $ NonUniqueSumTags sty
                else tc es
+          (Field _ (FixedArray ty _)) ->
+            case ty of
+              (BField {}) -> tc es
+              (Tycon tyName) -> 
+                -- TODO(ethan): check that tyName is fixed width
+                if tyName `M.member` gamma then tc es
+                     else throw $ UnknownBlock tyName
+              _ -> throw $ BadFixedArray ty
+
+            
 

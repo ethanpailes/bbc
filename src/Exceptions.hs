@@ -16,6 +16,7 @@ data CompilerException = Unsupported String
                        | MalformedHigherOrderType String Ty
                        | RealityBreach String
                        | NonUniqueSumTags Ty
+                       | BadFixedArray Ty
   deriving( Typeable )
 
 instance Show CompilerException where
@@ -28,6 +29,8 @@ instance Show CompilerException where
   show (RealityBreach s) =
     "Reality Breached from " ++ s ++ ". Please report this bug to <ethanpailes@gmail.com>"
   show (NonUniqueSumTags ty) = "Non Unique Sum Tags for type" ++ pretty ty
+  show (BadFixedArray ty) =
+    show ty ++ " is not a valid type for used in a fixed length array"
 
 instance Exception CompilerException
 

@@ -25,6 +25,7 @@ Generated Methods to Add:
       dynamically).
 
 Language Features:
+  Fixed width fields.
   Unaligned bit fields
   Nested blocks
   Higher order types
@@ -38,7 +39,3 @@ Language Features:
   Fields as sumty tags
   arrays with length tag translation rules?
 
-
-Optimizations & implementation clean up:
-  Text manipulation with Text rather than Strings
-  Use langauge-c instead of plan-text manipulation
