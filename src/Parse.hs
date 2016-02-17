@@ -76,8 +76,8 @@ rword w = try (string w) *> notFollowedBy alphaNumChar *> sc
 identifier :: Parser String
 identifier = lexeme (p >>= check)
   where p = do
-          c <- letterChar
-          cs <- many alphaNumChar
+          c <- (letterChar <|> char '_')
+          cs <- many (alphaNumChar <|> char '_')
           pure (c:cs)
         check x = if x `elem` reserved
                      then fail $ show x ++ " is a reserved word!"
@@ -117,7 +117,7 @@ parseFixedArray = lexeme $ do
   _ <- rword "arrayf"
   ty <- parseTy
   num <- decimal
-  pure $ FixedArray ty num
+  pure $ FixedArray ty (fromIntegral num)
 
 parseTycon :: Parser Ty
 parseTycon = lexeme (Tycon <$> identifier)

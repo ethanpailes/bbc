@@ -43,7 +43,7 @@ data Ty = BField Int Sign Endianness
         | Tycon Name
         | TyConapp Ty [Ty]
         | SumTy Ty [(Ty, Integer)]
-        | FixedArray Ty Integer
+        | FixedArray Ty Int
       deriving( Eq, Ord, Show )
 
 isSumTy :: Ty -> Bool

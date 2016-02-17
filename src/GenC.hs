@@ -14,7 +14,6 @@ import Data.Maybe
 import Data.Monoid
 import Data.Either
 import Exceptions
-import qualified Data.Text as T
 
 -- for random string generation
 import System.Random
@@ -35,9 +34,8 @@ gen gamma bs =
       <> "#include <stdint.h>\n"
       <> "#include <endian.h>\n"
       <> "#include <stdlib.h>\n"
-      <> "#include <stdio.h>\n\n"
-      <> "#define true 1\n"
-      <> "#define false 0\n\n"
+      <> "#include <stdio.h>\n"
+      <> "#include <stdbool.h>\n"
       <> "#ifndef __BYTE_BLOCKS_UTILS__\n"
       <> "#define __BYTE_BLOCKS_UTILS__\n"
       <> "int grow_buff(char ** buff, size_t * len)\n"
@@ -59,10 +57,12 @@ gen gamma bs =
 
 type GenFunc = Env Block -> Block -> String
 
+{-
 type NewGenFunc = Env Block -> Block -> [T.Text]
 
 toGenFunc :: (NewGenFunc) -> GenFunc
 toGenFunc f gamma block = (T.unpack . T.concat) $ f gamma block
+-}
 
 genBlock :: GenFunc
 genBlock gamma b = unlines $ map (\genFun -> genFun gamma b) genFuns
@@ -107,7 +107,10 @@ genStructure _ (Block bName es) =
                       (Tycon tyName) -> "    " <>tyName<> " * " <> name <> ";\n"
                       (TyConapp {}) -> throw $ Exceptions.Unsupported
                                                     "Nested higher order types."
-                      (SumTy {}) -> throw $ Exceptions.Unsupported "genStructure Sum types."
+                      (SumTy {}) ->
+                        throw $ Exceptions.Unsupported "genStructure Sum types."
+                      (FixedArray {}) ->
+                        throw $ Exceptions.Unsupported "genStructure Sum types."
               _ -> throw Exceptions.TypeError
           (SumTy tag opts) -> 
             fieldStr (Field (name <> "_tag") tag)
@@ -116,6 +119,8 @@ genStructure _ (Block bName es) =
             <> "    } " <> name <> ";\n"
               where
                 unionFields (t, n) = fieldStr (Field (name <> "_" <> show n) t)
+          (FixedArray t num) ->
+            "    " <> cTypeOf t <> " " <> name <> "[" <> show num <> "];\n"
 
 
 
@@ -174,28 +179,27 @@ genSize gamma blk@(Block blkName entries) =
                "    switch (b->" <> fName <> "_tag) {\n"
             <> concatMap (sizeCase fName) opts
             <> "    }\n"
+          dynamicSizeOf (Field _ fa@(FixedArray {})) =
+            "    size += " <> case byteSizeOf gamma fa of
+                               (Just n) -> show n <> ";\n"
+                               Nothing -> throw $ TypeError
 
 
 -- Some blocks it is nice to have lying around for REPL testing
+
 {-
+fixedArrayBlock = Block "fixedArrayTest"
+                    [Field "f1" (BField 8 Unsigned NativeEndian),
+                    Field "f2" (FixedArray (BField 16 Unsigned BigEndian) 32)]
+
 b2 = Block "test2"
         [Field "f1" (BField 32 Signed BigEndian),
+         Field "f1.5" (FixedArray (BField 16 Unsigned NativeEndian) 20),
          Field "f2" (TyConapp (Tycon "array") [BField 16 Unsigned LittleEndian,
                                                BField 32 Signed BigEndian])]
+
 gamma' = M.insert "test2" b2 TypeCheck.gammaInit
 
-b1 = Block "test1"
-        [Field "f1" (BField 16 Signed BigEndian),
-         Field "f2" (SumTy (BField 16 Unsigned BigEndian)
-                              [(BField 16 Unsigned BigEndian, 0), 
-                               (Tycon "test2", 2),
-                               (BField 64 Signed LittleEndian, 1)])]
-
-b3 = Block "test1"
-        [Field "f1" (BField 16 Signed BigEndian),
-         Field "f2" (TyConapp (Tycon "array")
-                              [BField 16 Unsigned NativeEndian,
-                               Tycon "test2"])]
 -}
 
 genWrite :: GenFunc
@@ -275,6 +279,13 @@ genPack gamma (Block n entries) =
         <> "    switch (src->" <> fName <> "_tag) {\n"
         <> concatMap caseEntry opts
         <> "    }\n" 
+      packStmt (Field fName fa@(FixedArray {})) =
+        let bytesToCopy = case byteSizeOf gamma fa of
+                            (Just bytes) -> bytes
+                            Nothing -> throw $ TypeError
+         in "    memcpy(tgt + bytes_written, src->" <> fName
+             <> ", " <> show bytesToCopy <> "); bytes_written += "
+             <> show bytesToCopy <> ";\n"
 
       packStmts [] = ""
       packStmts (e:es) =
@@ -302,7 +313,10 @@ genRead gamma blk@(Block blkName _) =
           rs (Block bName (e:es)) finished acc =
             case e of
               (Blk _) -> throw $ Exceptions.Unsupported "Nested blocks"
-              (Field _ (BField {})) -> rs (Block bName es) finished (e : acc)
+              (Field _ (BField {})) -> -- add the entry to the accumulator
+                rs (Block bName es) finished (e : acc)
+              (Field _ (FixedArray {})) -> 
+                rs (Block bName es) finished (e : acc)
               (Field _ (Tycon tyName)) ->
                   let (Block _ blkEntries) = fromJust (tyName `M.lookup` gamma)
                    in readSequences (Block "BOGUS" (blkEntries <> es ))
@@ -462,6 +476,13 @@ genUnpack gamma (Block n entries) =
          <> "    switch (tgt->" <> fName <> "_tag) {\n"
          <> unlines (concatMap (map ("    " <>) . caseStmt) opts)
          <> "    }"
+      unpackStmt (Field fName fa@(FixedArray {})) =
+        let bytesToCopy = case byteSizeOf gamma fa of
+                            (Just bytes) -> bytes
+                            Nothing -> throw $ TypeError
+         in "    memcpy(tgt->" <> fName <>", src + bytes_consumed, "
+             <> show bytesToCopy <> "); bytes_consumed += "
+             <> show bytesToCopy <> ";\n"
 
       unpackStmts [] = ""
       unpackStmts (e:es) =
@@ -473,6 +494,7 @@ genUnpack gamma (Block n entries) =
 genFree :: GenFunc
 genFree _ (Block bName entries) =
   let justs xs = foldr (\(s,n) a -> if s == Nothing then a else (fromJust s,n):a) [] xs
+      freeStr :: Entry -> Maybe Name
       freeStr (Blk _) = throw $ Exceptions.Unsupported "Nested Blocks."
       freeStr (Field _ (BField {})) = Nothing
       freeStr (Field fName (Tycon tyName)) = 
@@ -490,8 +512,10 @@ genFree _ (Block bName entries) =
               <> "    }\n"
               where iter = fName <> "_iter"
             (TyConapp {}) -> throw Exceptions.TypeError
-            (SumTy {}) -> throw $ Exceptions.Unsupported "Sum Types.")
+            (SumTy {}) -> throw $ Exceptions.Unsupported "Sum Types."
+            (FixedArray {}) -> "")
           <> "    free(tgt->" <> fName <> "); tgt->" <> fName <> " = NULL;\n")
+            
       freeStr (Field _ hot@(TyConapp _ _)) = 
         throw $ Exceptions.MalformedHigherOrderType "genFree:" hot
       freeStr (Field fName (SumTy _ opts)) =
@@ -503,7 +527,8 @@ genFree _ (Block bName entries) =
               justs $ map
                        (\(ty, n) ->
                          (freeStr
-                           (Field (fName <> "." <> fName <> "_" <> show n) ty), n))
+                           (Field (fName <> "." <> fName <> "_" <> show n)
+                             ty), n))
                        opts
          in if optStrs == []
                then Nothing
@@ -512,7 +537,7 @@ genFree _ (Block bName entries) =
                          <> "    default:\n"
                          <> "        break;\n"
                          <> "    }\n")
-        
+      freeStr (Field _ (FixedArray {})) = Nothing
    in
      "void " <> bName <> "_free(" <> bName <> " *tgt)\n"
   <> "{\n"
@@ -553,9 +578,11 @@ blockSize gamma (Block _ entries) =
                           (RealityBreach "blockSize: sizeOfType, array: ")
               _               -> throw Exceptions.TypeError
       sizeOfType (Field _ (SumTy tag _)) =
-          case sizeOfType (Field "" tag) of
+          case sizeOfType (Field "BOGUS" tag) of
             (Right x) -> Left x
             (Left _) -> throw $ RealityBreach "blockSize: sizeOfType, SumTy: "
+      sizeOfType (Field _ (FixedArray ty num)) =
+        (pure . (*num) . fromJust) $ byteSizeOf gamma ty
       sizeOfType (Blk _) = throw $ Exceptions.Unsupported "Nested blocks."
       
       acc (Right a) (Right x) = Right (a + x)
@@ -576,6 +603,10 @@ byteSizeOf gamma (Tycon tyName) =
           typeOf (Field _ ty) = ty
 byteSizeOf _     (TyConapp _ _) = Nothing
 byteSizeOf _ (SumTy {}) = Nothing --throw $ Exceptions.Unsupported "byteSizeOf Sum Types."
+byteSizeOf gamma (FixedArray ty num) =
+  case byteSizeOf gamma ty of
+    (Just n) -> pure $ n * num
+    Nothing -> throw $ BadFixedArray ty
 
 -- only works on bfields, helper function to compute the ctype of a given bfield
 cTypeOf :: Ty -> String
