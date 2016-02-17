@@ -7,4 +7,5 @@ large-array
 sumty
 sumty-and-nested
 bad-read
+fixed-array
 *.h
