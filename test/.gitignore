@@ -8,4 +8,5 @@ sumty
 sumty-and-nested
 bad-read
 fixed-array
+fixed-array-nested
 *.h
