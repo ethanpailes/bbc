@@ -10,4 +10,5 @@ bad-read
 fixed-array
 fixed-array-nested
 fixed-array-sumty
+fixed-array-type-error
 *.h

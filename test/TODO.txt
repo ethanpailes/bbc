@@ -1,4 +1,0 @@
-
-
-Test which ensures a type error when a fixed length array
-is asked to contain a variable length block

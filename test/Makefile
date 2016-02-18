@@ -73,4 +73,5 @@ clean:
 	  fixed-array-nested.bb.h \
 	  fixed-array-nested \
 	  fixed-array-sumty.bb.h \
-	  fixed-array-sumty
+	  fixed-array-sumty \
+	  fixed-array-type-error
