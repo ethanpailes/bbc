@@ -21,7 +21,9 @@ test: clean \
 	  fixed-array.bb.h \
 	  fixed-array \
 	  fixed-array-nested.bb.h \
-	  fixed-array-nested
+	  fixed-array-nested \
+	  fixed-array-sumty.bb.h \
+	  fixed-array-sumty
 	./test.sh aligned-bitfields 0 ./outfiles/aligned-bitfields.out aligned-bitfields
 	./test.sh compile-unknown-block.sh 1 ./outfiles/compile-unknown-block.sh.out unknown-block
 	./test.sh named-block 0 ./outfiles/named-block.out named-block
@@ -33,6 +35,7 @@ test: clean \
 	./test.sh bad-read 0 ./outfiles/bad-read.out bad-read
 	./test.sh fixed-array 0 ./outfiles/fixed-array.out fixed-array
 	./test.sh fixed-array-nested 0 ./outfiles/fixed-array-nested.out fixed-array-nested
+	./test.sh fixed-array-sumty 0 ./outfiles/fixed-array-sumty.out fixed-array-sumty
 
 
 %.bb.h: %.bb
@@ -62,4 +65,6 @@ clean:
 	  fixed-array.bb.h \
 	  fixed-array \
 	  fixed-array-nested.bb.h \
-	  fixed-array-nested
+	  fixed-array-nested \
+	  fixed-array-sumty.bb.h \
+	  fixed-array-sumty

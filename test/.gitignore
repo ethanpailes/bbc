@@ -9,4 +9,5 @@ sumty-and-nested
 bad-read
 fixed-array
 fixed-array-nested
+fixed-array-sumty
 *.h
