@@ -27,6 +27,8 @@ int main(int argc, char *argv[])
   assert(t2.f6 == 48);
   assert(t2.f4 == -9834);
 
+  fclose(in);
+
   execl("rm", "-f", TMP_FILE, NULL);
 
   return 0;

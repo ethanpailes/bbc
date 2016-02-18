@@ -201,10 +201,10 @@ genSize gamma blk@(Block blkName entries) =
 
 -- Some blocks it is nice to have lying around for REPL testing
 
-{-
 fixedArrayBlockInner = Block "fixedArrayTestInner"
-                    [Field "f1" (BField 8 Unsigned NativeEndian),
-                    Field "f2" (FixedArray (BField 16 Unsigned BigEndian) 32)]
+        [Field "f1" (BField 8 Unsigned NativeEndian),
+         Field "f2" (TyConapp (Tycon "array") [BField 16 Unsigned LittleEndian,
+                                               BField 32 Signed BigEndian])]
 
 fixedArrayBlockOuter = Block "fixedArrayTestOuter"
                     [Field "f1" (BField 16 Unsigned NativeEndian),
@@ -212,6 +212,7 @@ fixedArrayBlockOuter = Block "fixedArrayTestOuter"
 
 gamma' = M.insert "fixedArrayBlockInner" fixedArrayBlockInner TypeCheck.gammaInit
 
+{-
 b2 = Block "test2"
         [Field "f1" (BField 32 Signed BigEndian),
          Field "f1.5" (FixedArray (BField 16 Unsigned NativeEndian) 20),
@@ -620,8 +621,10 @@ blockSize gamma (Block _ entries) =
           case sizeOfType (Field "BOGUS" tag) of
             (Right x) -> Left x
             (Left _) -> throw $ RealityBreach "blockSize: sizeOfType, SumTy: "
-      sizeOfType (Field _ (FixedArray ty num)) =
-        (pure . (*num) . fromJust) $ byteSizeOf gamma ty
+      sizeOfType (Field _ fa@(FixedArray ty num)) =
+            case byteSizeOf gamma ty of
+              (Just n) -> Right $ n * num
+              Nothing  -> throw $ Exceptions.BadFixedArray fa
       sizeOfType (Blk _) = throw $ Exceptions.Unsupported "Nested blocks."
       
       acc (Right a) (Right x) = Right (a + x)
