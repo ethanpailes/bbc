@@ -201,6 +201,7 @@ genSize gamma blk@(Block blkName entries) =
 
 -- Some blocks it is nice to have lying around for REPL testing
 
+{-
 fixedArrayBlockInner = Block "fixedArrayTestInner"
         [Field "f1" (BField 8 Unsigned NativeEndian),
          Field "f2" (TyConapp (Tycon "array") [BField 16 Unsigned LittleEndian,
@@ -212,7 +213,6 @@ fixedArrayBlockOuter = Block "fixedArrayTestOuter"
 
 gamma' = M.insert "fixedArrayBlockInner" fixedArrayBlockInner TypeCheck.gammaInit
 
-{-
 b2 = Block "test2"
         [Field "f1" (BField 32 Signed BigEndian),
          Field "f1.5" (FixedArray (BField 16 Unsigned NativeEndian) 20),
@@ -302,7 +302,8 @@ genPack gamma (Block n entries) =
         <> "    }\n" 
       packStmt (Field fName (FixedArray (Tycon innerName) num)) =
         let iteratorName = fName <> "_iter"
-         in "    for (size_t " <> iteratorName <> " = 0; " <> iteratorName <> " < "
+         in "    size_t " <> iteratorName <> ";\n"
+         <> "    for (" <> iteratorName <> " = 0; " <> iteratorName <> " < "
                             <> show num <> "; ++" <> iteratorName <> ") {\n"
          <> "        bytes_written += " <> innerName <> "_pack(src->"
                             <> fName <> " + " <> iteratorName
@@ -510,7 +511,8 @@ genUnpack gamma (Block n entries) =
          <> "    }"
       unpackStmt (Field fName (FixedArray (Tycon innerName) num)) =
         let iteratorName = fName <> "_iter"
-         in "    for (size_t " <> iteratorName <> " = 0; " <> iteratorName <> " < "
+         in "    size_t " <> iteratorName <> ";\n"
+         <> "    for (" <> iteratorName <> " = 0; " <> iteratorName <> " < "
                             <> show num <> "; ++" <> iteratorName <> ") {\n"
          <> "        bytes_consumed += " <> innerName <> "_unpack_new(tgt->"
                             <> fName <> " + " <> iteratorName
