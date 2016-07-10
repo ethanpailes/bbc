@@ -10,6 +10,7 @@ import Data.Either
 import qualified Data.Text.IO as Tio
 
 import qualified GenC
+import qualified GenC2
 import qualified TypeCheck
 import qualified Exceptions
 import qualified Parse
@@ -28,6 +29,7 @@ data Options = Options { optDump :: OptDump
                        , optTgt :: OptTgt
                        , optOutput :: String -> IO ()
                        , optHelp :: Bool
+                       , optNew :: Bool
                        }
 
 options :: [ OptDescr (Options -> IO Options) ]
@@ -41,6 +43,9 @@ options =
   , Option "h" ["help"]
       (NoArg (\opts -> return opts { optHelp = True }))
       "Print this message."
+  , Option "n" ["new-format"]
+      (NoArg (\opts -> return opts { optNew= True }))
+      "Output the new C api."
   , Option "t" ["target-lang"]
       (ReqArg
         (\arg opts -> return opts { optTgt = readTgt arg })
@@ -58,6 +63,7 @@ startOptions = Options { optDump = DumpNoDump
                        , optTgt = C
                        , optOutput = putStrLn
                        , optHelp = False
+                       , optNew = False
                        }
 
 
@@ -89,7 +95,8 @@ runCompiler opts files =
             return $ Parse.parseFile f contents
       Options { optDump = dump
               , optTgt = tgt
-              , optOutput = out } = opts
+              , optOutput = out 
+              , optNew = newFormat } = opts
   in do
     parses <- allBlocks
     if any isLeft parses -- test if there were any parse errors
@@ -103,4 +110,5 @@ runCompiler opts files =
         DumpGen -> putStrLn "DumpGen Unimplimented."
         DumpNoDump -> do
           out $ case tgt of
-                C -> GenC.gen gamma parseResults
+                C -> (if newFormat then GenC2.gen else GenC.gen)
+                        gamma parseResults

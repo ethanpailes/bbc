@@ -49,15 +49,15 @@ test: clean \
 
 
 %.bb.h: %.bb
-	${BBCC} -o $@ $<
+	${BBCC} -n -o $@ $<
 
 %: %.bb.h
 	${CC} -o $@ $@.c
 
 clean:
-	rm -f *.bb.h
+	# rm -f *.bb.h
+    # aligned-bitfields.bb.h 
 	rm -f \
-	  aligned-bitfields.bb.h \
 	  aligned-bitfields \
 	  named-block.bb.h \
 	  named-block \

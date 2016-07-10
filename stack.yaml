@@ -3,3 +3,7 @@ packages:
 - '.'
 extra-deps: [ megaparsec-4.2.0 ]
 resolver: lts-3.5
+
+
+nix:
+    enable: true
