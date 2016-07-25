@@ -22,6 +22,7 @@ executable bbc
         TemplateHaskell
   ghc-options:
         -Wall
+        -fno-warn-name-shadowing
   other-modules:
         Ast
       , Exceptions
@@ -29,6 +30,8 @@ executable bbc
       , Parse
       , TypeCheck
       , GenC2
+      , SyntaxImp
+      , CPretty
   build-depends:
         base >= 4.7 && < 5
       , QuickCheck
@@ -41,3 +44,4 @@ executable bbc
       , mtl == 2.2.1
       , language-c == 0.4.7
       , bytestring == 0.10.6.0
+      , pretty == 1.1.2.0

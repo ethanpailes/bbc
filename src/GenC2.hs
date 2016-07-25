@@ -18,23 +18,26 @@ import TypeCheck
 -- import Control.Monad
 import Control.Monad.RWS.Lazy
 
-import Language.C.Syntax.AST
-import Language.C.Parser
-import Language.C.Data.Position
-import Language.C.Data.Name
-import Language.C.Data.Ident
-import Language.C.Data.Node
--- import qualified Language.C.Pretty as CPretty
-import Data.ByteString
 -- import qualified Data.Text as T
 
+import Text.PrettyPrint hiding ((<>))
+import qualified CPretty
+import SyntaxImp
 
 --
 -- The generator function that we expose from this module
 --
 
 gen :: Env Block -> [Block] -> String
-gen _ _ = "Unimplimented."
+gen gamma bs = 
+    let env = GenEnv { gamma = gamma }
+        (_, _, out) = runRWS (genCM bs) env initGenSt
+     in printOutput out
+
+
+genCM :: [Block] -> GenM ()
+genCM bs = sequence (map genHandle bs) >>= \_ -> return ()
+
 
 --
 -- Define our state monad and initial state
@@ -42,20 +45,23 @@ gen _ _ = "Unimplimented."
 
 data GenEnv = GenEnv {
             gamma :: Env Block
-          , tgtFileName :: String
         }
     deriving( Show )
 
 data GenSt = GenSt {
             counter :: Int 
-          , names :: [Name]
         }
     deriving( Show )
 
 data Output = Output {
-          decls :: [CExtDecl]
+          decls :: [IDecl]
         }
     deriving( Show )
+
+printOutput :: Output -> String
+printOutput out = show doc
+    where doc = vcat $ (map CPretty.cpretty (decls out))
+
 
 instance Monoid Output where
     mempty = Output {
@@ -73,49 +79,38 @@ type GenM = RWS GenEnv Output GenSt
 bogusGenEnv :: GenEnv
 bogusGenEnv = GenEnv {
                 gamma = gammaInit
-              , tgtFileName = "BOGUS" 
             }
-
 initGenSt :: GenSt
 initGenSt = GenSt {
-        counter = 0
-      , names = newNameSupply
-    }
+          counter = 0
+        }
 
-mkId :: String -> GenM Ident
-mkId base = do
-    pos <- bogusPos
+uniqueId :: [String] -> GenM IId
+uniqueId base = do
     st <- get
-    let (n:ns) = names st -- safe because names is infinite
-    put $ st { names = ns }
-    return $ mkIdent pos base n
+    put $ st { counter = (counter st) + 1 }
+    return $ IId base (Just (counter st))
 
-bogusNode :: GenM NodeInfo
-bogusNode = do
-    pos <- bogusPos
-    return $ OnlyPos pos (pos, 0)
+-- makes a nekked id. beware of name capture
+mkId :: [String] -> GenM IId
+mkId base = return $ IId base Nothing
 
-bogusPos :: GenM Position
-bogusPos = do
-    file <- tgtFileName <$> ask
-    return $ position 0 file 0 0
-
-genHandle :: Block -> GenM CStructUnion
+genHandle :: Block -> GenM ()
 genHandle (Block name _) = do
-    n <- mkId name
-    bogus <- bogusNode
-    return $ CStruct CStructTag (Just n)
-                 Nothing [] bogus
-                 -- undefined undefined undefined
---
--- Debugging Utilities
---
+    n <- mkId [name]
+    isValid <- mkId ["is", "valid"]
+    d <- mkId ["data"]
+    tell $ Output [ IStructure n [
+          IAnnId isValid (IMut IBool)
+        , IAnnId d (IMut (IPtr (IMut IByte)))
+        ]]
 
-parseCThing :: (P a) -> ByteString -> Either ParseError a
-parseCThing parser input = 
-    execParser_ parser input pos
-        where pos = position 0 "test" 0 0
+-- mkStructPtr :: IId -> IAnnTy
 
-parseExtDecl :: ByteString -> Either ParseError CExtDecl
-parseExtDecl = parseCThing extDeclP
 
+genRead :: Block -> GenM ()
+genRead (Block name entries) = do
+    funName <- mkId [name, "read", "new"]
+    handle <- mkId [name]
+    tell $ IFun funName -- [IAnnId handle (IMut (IStruct 
+    

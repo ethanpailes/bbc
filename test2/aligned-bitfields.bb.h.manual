@@ -1,0 +1,63 @@
+
+#ifndef __ALIGNED_BITFIELDS__H__
+#define __ALIGNED_BITFIELDS__H__
+
+#include <stdlib.h>
+#include <stdint.h>
+#include <endian.h>
+#include <stdbool.h>
+
+
+// block test
+//   f1 : 8ul
+//   f2 : 8ub
+//   f3 : 32s
+//   f4 : 64sb
+//   f6 : 16ul
+// end
+// typedef char* test_h;
+
+typedef struct test_h {
+    bool is_compacted;
+    char data[];
+}* test_h;
+
+//
+// Forward Decls
+//
+
+test_h test_new();
+void test_free(test_h t);
+
+uint8_t test_get_f1(test_h t);
+void test_put_f1(test_h t, uint8_t i);
+
+//
+// Impl
+//
+
+test_h test_new()
+{
+    test_h t = malloc(16 + sizeof(struct test_h));
+    t->is_compacted = true;
+    return t;
+}
+
+void test_free(test_h t)
+{
+    free(t);
+}
+
+uint8_t test_get_f1(test_h t)
+{
+    return *((uint8_t *)(t->data + 0 ));
+}
+
+void test_put_f1(test_h t, uint8_t i)
+{
+    *((uint8_t *)(t->data + 0)) = i;
+}
+
+
+#endif /* __ALIGNED_BITFIELDS__H__ */
+

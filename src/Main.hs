@@ -10,10 +10,11 @@ import Data.Either
 import qualified Data.Text.IO as Tio
 
 import qualified GenC
-import qualified GenC2
 import qualified TypeCheck
 import qualified Exceptions
 import qualified Parse
+
+import qualified GenC2
 
 data OptDump = DumpAst | DumpGen | DumpNoDump
   deriving(Eq,Ord,Show)
