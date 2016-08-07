@@ -1,9 +1,8 @@
 flags: {}
 packages:
 - '.'
-extra-deps: [ megaparsec-4.2.0 ]
-resolver: lts-3.5
-
+extra-deps: [ megaparsec-5.0.1 ]
+resolver: lts-6.7
 
 nix:
-    enable: true
+   enable: true

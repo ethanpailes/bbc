@@ -1,4 +1,5 @@
-
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module Parse (
    parseFile
@@ -15,19 +16,27 @@ import qualified Control.Exception as E
 
 import Text.Megaparsec
 import Text.Megaparsec.Pos
-import Text.Megaparsec.Text
+import Text.Megaparsec.Text -- magic import which defines our parser type
 import qualified Text.Megaparsec.Lexer as L
 import qualified Data.Text as T
+
+import Data.List.NonEmpty (NonEmpty((:|)))
+
+type MyParseError = ParseError (Token T.Text) Dec
+
+myeof :: Parser ()
+myeof = eof
+
 
 parseFile ::
     String -> -- the name of the source file
     T.Text -> -- the text input stream from the file
-    Either ParseError [Block]
+    Either MyParseError [Block]
 parseFile sourceFile inputStream = reverse <$> parseRest [] initialState
-  where initialState = State inputStream (newPos sourceFile 1 1) defaultTabWidth
+  where initialState = State inputStream ((initialPos sourceFile):|[]) defaultTabWidth
         paddedParseBlock = lexemeN $ scWithNewlines >> parseBlock
         parseRest acc state =
-          if isRight $ snd $ runParser' eof state -- if we are at EOF
+          if isRight $ snd $ runParser' myeof state -- if we are at EOF
              then Right acc else
           case runParser' paddedParseBlock state of
             (state', Right block) -> parseRest (block:acc) state'
@@ -91,9 +100,9 @@ parseBField :: Parser Ty
 parseBField = lexeme $ do
   width <- int
            <?> "BFields length integer."
-  sign <- oneOf "us"
+  sign <- oneOf ("us"::String)
            <?> "BFields to specify 'u' (unsigned) or 's' (signed),"
-  endianness <- lookAhead (char '\n') <|> oneOf "bln \t"
+  endianness <- lookAhead (char '\n') <|> oneOf ("bln \t"::String)
            <?> "BFields to specify 'b' (big endian), 'l' (little endian), "
                 ++ "or 'b' (native endian). Defaults to native endian."
   pure $ BField
@@ -178,7 +187,7 @@ parseField = lexeme $ do
   return (Field fieldName ty)
 
 prop_ParseEntryParsesArbitraryField :: Entry -> Bool
-prop_ParseEntryParsesArbitraryField (Blk {}) = True -- ignore
+prop_ParseEntryParsesArbitraryField Blk{} = True -- ignore
 prop_ParseEntryParsesArbitraryField f =
   runParserTest parseEntry (tpretty f) (== f)
 
@@ -193,7 +202,7 @@ prop_ParseDoubleLevelBlock (Block n (e:es)) inner =
 prop_ParseDoubleLevelBlock (Block _ []) inner = -- just test the inner
   runParserTest parseBlock (tpretty inner) (== inner)
 
-runParserTest :: Stream s t => Parsec s a -> s -> (a -> Bool) -> Bool
+runParserTest :: forall e s a. Parsec e s a -> s -> (a -> Bool) -> Bool
 runParserTest p input sat = 
   case runParser p "test snippet" input of
     Right res -> sat res

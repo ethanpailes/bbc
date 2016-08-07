@@ -34,9 +34,8 @@ gen gamma bs =
         (_, _, out) = runRWS (genCM bs) env initGenSt
      in printOutput out
 
-
 genCM :: [Block] -> GenM ()
-genCM bs = sequence (map genHandle bs) >>= \_ -> return ()
+genCM bs = mapM genHandle bs >>= \_ -> return ()
 
 
 --
@@ -105,12 +104,15 @@ genHandle (Block name _) = do
         , IAnnId d (IMut (IPtr (IMut IByte)))
         ]]
 
+
 -- mkStructPtr :: IId -> IAnnTy
 
-
+{-
 genRead :: Block -> GenM ()
 genRead (Block name entries) = do
     funName <- mkId [name, "read", "new"]
     handle <- mkId [name]
     tell $ IFun funName -- [IAnnId handle (IMut (IStruct 
+-}
+
     

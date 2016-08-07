@@ -23,6 +23,7 @@ executable bbc
   ghc-options:
         -Wall
         -fno-warn-name-shadowing
+        -j1
   other-modules:
         Ast
       , Exceptions
@@ -36,12 +37,13 @@ executable bbc
         base >= 4.7 && < 5
       , QuickCheck
       , parsec
+      , semigroups
       , MissingH
-      , random == 1.1
-      , containers == 0.5.6.2
-      , megaparsec == 4.2.0
-      , text == 1.2.1.3
-      , mtl == 2.2.1
-      , language-c == 0.4.7
-      , bytestring == 0.10.6.0
-      , pretty == 1.1.2.0
+      , random >= 1.1
+      , containers >= 0.5.6.2
+      , megaparsec >= 4.2.0
+      , text >= 1.2.1.3
+      , mtl >= 2.2.1
+      , language-c >= 0.4.7
+      , bytestring >= 0.10.6.0
+      , pretty >= 1.1.2.0

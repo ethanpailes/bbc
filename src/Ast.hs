@@ -47,15 +47,15 @@ data Ty = BField Int Sign Endianness
       deriving( Eq, Ord, Show )
 
 isSumTy :: Ty -> Bool
-isSumTy (SumTy {}) = True
+isSumTy SumTy{} = True
 isSumTy _ = False
 
 isBField :: Ty -> Bool
-isBField (BField {}) = True
+isBField BField{} = True
 isBField _ = False
 
 isTycon :: Ty -> Bool
-isTycon (Tycon {}) = True
+isTycon Tycon {} = True
 isTycon _ = False
 
 instance Pretty Ty where
@@ -87,7 +87,7 @@ instance Arbitrary Ty where
         s <- arbitrary
         e <- arbitrary
         return $ BField len s e
-      aTycon = liftM Tycon (suchThat arbitrary
+      aTycon = fmap Tycon (suchThat arbitrary
                               (\list -> all isLetter list && not (null list)
                                         && list `notElem` reserved))
       aTyConapp = do
@@ -98,7 +98,6 @@ instance Arbitrary Ty where
         tag <- aBFeild
         opts <- listOf1 $ oneof [aBFeild, aTycon]
         return $ SumTy tag (zip opts [0..])
-
 
 data Entry = Blk Block | Field Name Ty
   deriving( Eq, Ord, Show )
