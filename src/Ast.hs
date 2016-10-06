@@ -125,3 +125,15 @@ instance Arbitrary Block where
     n <- suchThat arbitrary (\l -> all isLetter l && not (null l))
     entries <- suchThat (listOf arbitrary) (not . null)
     return $ Block n entries
+
+-----------------------------------------------------------------------
+-- REPL TESTING
+-----------------------------------------------------------------------
+alignedBitfields :: Block
+alignedBitfields = 
+  Block "test"
+     [Field "f1" (BField 8 Unsigned LittleEndian),
+      Field "f2" (BField 8 Unsigned BigEndian),
+      Field "f3" (BField 32 Signed NativeEndian),
+      Field "f4" (BField 64 Signed BigEndian),
+      Field "f6" (BField 16 Unsigned LittleEndian)] 
